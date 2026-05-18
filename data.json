@@ -55,7 +55,7 @@
     { "source": "王氏", "target": "房中曲", "relation": "考据关联" },
     { "source": "韩偓", "target": "温庭筠", "relation": "文学影响" },
     { "source": "温庭筠", "target": "段成式", "relation": "文学交游" },
-    { "source": "寄令狐郎中", "target": "令狐楚", relation: "考据关联" },
+    { "source": "寄令狐郎中", "target": "令狐楚", "relation": "考据关联" },
     { "source": "寄令狐郎中", "target": "牛李党争", "relation": "政治背景" }
   ]
 }
