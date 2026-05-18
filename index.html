@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>文道维基 - 司南图谱 v3.5.2 异步分离版</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        :root {
+            --amber-gold: #D4AF37;
+            --silk-white: #FDFBF7;
+            --ink-dark: #2C2C2C;
+            --ink-gray: #888888;
+        }
+
+        body, html {
+            margin: 0; padding: 0; width: 100%; height: 100%;
+            background-color: var(--silk-white);
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='400' viewBox='0 0 400 400'%3E%3Cpath d='M100 100 Q 200 200 300 100' stroke='%23e0ddd5' stroke-width='0.5' fill='none' opacity='0.4'/%3E%3C/svg%3E");
+            color: var(--ink-dark);
+            font-family: "STSong", "SimSun", "Microsoft YaHei", serif;
+            overflow: hidden;
+        }
+
+        #graph-container {
+            width: 100vw; height: 100vh;
+        }
+
+        .node text {
+            pointer-events: none;
+            text-shadow: 0 0 8px rgba(253, 251, 247, 1), 0 0 3px rgba(253, 251, 247, 0.8);
+            font-size: 15px;
+            font-weight: bold;
+            letter-spacing: 2px;
+            fill: var(--ink-dark);
+            transition: all 0.3s ease;
+        }
+
+        .link {
+            stroke-opacity: 0.65;
+            transition: stroke-opacity 0.3s ease;
+        }
+
+        #top-panel {
+            position: absolute; top: 30px; left: 30px;
+            pointer-events: none;
+            z-index: 50;
+        }
+        #top-panel h1 {
+            color: var(--amber-gold); font-size: 32px; margin: 0 0 10px 0; font-weight: normal; letter-spacing: 4px;
+        }
+        #top-panel p { margin: 5px 0; font-size: 14px; color: var(--ink-gray); letter-spacing: 2px; }
+
+        #right-panel {
+            position: absolute; top: 0; right: -450px; 
+            width: 400px; height: 100vh;
+            background: rgba(253, 251, 247, 0.85);
+            backdrop-filter: blur(15px);
+            -webkit-backdrop-filter: blur(15px);
+            border-left: 1px solid rgba(212, 175, 55, 0.3);
+            box-shadow: -10px 0 30px rgba(0,0,0,0.05);
+            transition: right 0.5s cubic-bezier(0.19, 1, 0.22, 1); 
+            padding: 50px 40px;
+            box-sizing: border-box;
+            z-index: 100;
+            overflow-y: auto;
+        }
+
+        #right-panel.active { right: 0; } 
+
+        .panel-close {
+            position: absolute; top: 20px; right: 20px;
+            font-size: 28px; color: var(--ink-gray); cursor: pointer;
+            transition: color 0.3s;
+        }
+        .panel-close:hover { color: var(--amber-gold); }
+
+        #panel-tag {
+            display: inline-block; padding: 4px 12px;
+            border: 1px solid var(--amber-gold); color: var(--amber-gold);
+            font-size: 12px; letter-spacing: 2px; border-radius: 20px; margin-bottom: 20px;
+        }
+
+        #panel-title {
+            font-size: 36px; margin: 0 0 20px 0; font-weight: normal; color: var(--ink-dark); letter-spacing: 4px;
+        }
+
+        #panel-desc {
+            font-size: 15px; line-height: 2; color: #444; text-align: justify;
+        }
+        
+        .highlight-text { fill: var(--amber-gold) !important; text-shadow: none !important; }
+
+        #legend {
+            position: absolute;
+            bottom: 30px;
+            left: 30px;
+            pointer-events: none;
+            z-index: 50;
+        }
+        #legend-title {
+            font-size: 11px;
+            color: var(--ink-gray);
+            letter-spacing: 2px;
+            margin-bottom: 10px;
+            opacity: 0.7;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 6px;
+        }
+        .legend-line {
+            width: 26px;
+            height: 2px;
+            margin-right: 9px;
+            flex-shrink: 0;
+        }
+        .legend-label {
+            font-size: 11px;
+            color: var(--ink-gray);
+            letter-spacing: 1px;
+        }
+    </style>
+</head>
+<body>
+
+<div id="top-panel">
+    <h1>文道维基 · 司南图谱</h1>
+    <p>模式：李商隐全量演进图谱 v3.5.2（JSON 异步分离版）</p>
+    <p style="font-size: 12px; opacity: 0.6; margin-top: 15px;">* 数据已安全分离，底层完全遵循 GitOps 规范流程</p>
+</div>
+
+<div id="right-panel">
+    <div class="panel-close" onclick="closePanel()">×</div>
+    <div id="panel-tag">节点类型</div>
+    <h2 id="panel-title">节点名称</h2>
+    <div style="width: 30px; height: 2px; background: var(--amber-gold); margin-bottom: 20px;"></div>
+    <div id="panel-desc">描述内容</div>
+</div>
+
+<div id="legend">
+    <div id="legend-title">关系图例</div>
+    <div class="legend-item">
+        <div class="legend-line" style="background:#8B6914; height:2.5px;"></div>
+        <span class="legend-label">师门</span>
+    </div>
+    <div class="legend-item">
+        <div class="legend-line" style="background:#C17A6F; height:2.5px;"></div>
+        <span class="legend-label">姻亲 · 亲属</span>
+    </div>
+    <div class="legend-item">
+        <div class="legend-line" style="background:#4A7C8E;"></div>
+        <span class="legend-label">文学影响</span>
+    </div>
+    <div class="legend-item">
+        <div class="legend-line" style="background:#6B9FAF;"></div>
+        <span class="legend-label">文学交游</span>
+    </div>
+    <div class="legend-item">
+        <div class="legend-line" style="background:#7A6E5A;"></div>
+        <span class="legend-label">幕僚</span>
+    </div>
+    <div class="legend-item">
+        <div class="legend-line" style="background:#B8860B;"></div>
+        <span class="legend-label">创作</span>
+    </div>
+    <div class="legend-item">
+        <div class="legend-line" style="background:#A0956F;"></div>
+        <span class="legend-label">归属</span>
+    </div>
+    <div class="legend-item">
+        <div class="legend-line" style="background:#8B3A3A; height:2.5px;"></div>
+        <span class="legend-label">政治关系</span>
+    </div>
+    <div class="legend-item">
+        <div class="legend-line" style="background:none; border-top: 2px dashed #6B7A5A;"></div>
+        <span class="legend-label">考据关联</span>
+    </div>
+    <div class="legend-item">
+        <div class="legend-line" style="background:none; border-top: 2px dashed #A05030;"></div>
+        <span class="legend-label">影射</span>
+    </div>
+</div>
+
+<div id="graph-container"></div>
+
+<script>
+const nodeColors = {
+    "人物": "#5C4033", 
+    "作品": "#8B5A2B", 
+    "类型": "#B8860B", 
+    "事件": "#A0522D"  
+};
+
+const linkColors = {
+    "师门":      "#8B6914",
+    "姻亲":      "#C17A6F",
+    "亲属":      "#C17A6F",
+    "文学影响": "#4A7C8E",
+    "文学交游": "#6B9FAF",
+    "幕僚":      "#7A6E5A",
+    "创作":      "#B8860B",
+    "归属":      "#A0956F",
+    "身陷其中": "#8B3A3A",
+    "牛党核心": "#8B3A3A",
+    "李党相关": "#8B3A3A",
+    "亲历":      "#8B3A3A",
+    "影射":      "#A05030",
+    "考据关联": "#6B7A5A",
+    "政治背景": "#8B3A3A"
+};
+
+const width = window.innerWidth;
+const height = window.innerHeight;
+
+const svg = d3.select("#graph-container").append("svg")
+    .attr("width", width)
+    .attr("height", height);
+
+const defs = svg.append("defs");
+
+// 【正宫娘娘核心资产】利用 Fetch API 动态异步获取同级目录下的 data.json 数据库
+fetch('./data.json')
+    .then(res => {
+        if (!res.ok) throw new Error("无法读取数据文件，状态码：" + res.status);
+        return res.json();
+    })
+    .then(data => {
+        // 绑定节点颜色映射
+        data.nodes.forEach(n => n.color = nodeColors[n.type] || "#666");
+
+        // 动态构建发光球体渐变阵列
+        const gradients = defs.selectAll("radialGradient")
+            .data(data.nodes)
+            .enter().append("radialGradient")
+            .attr("id", (d, i) => "grad-" + i)
+            .attr("cx", "35%").attr("cy", "35%").attr("r", "60%");
+
+        gradients.append("stop").attr("offset", "0%").attr("stop-color", "#FFFFFF").attr("stop-opacity", 0.9);
+        gradients.append("stop").attr("offset", "100%").attr("stop-color", d => d.color).attr("stop-opacity", 1);
+
+        // 核心力学引擎初始化
+        const simulation = d3.forceSimulation(data.nodes)
+            .force("link", d3.forceLink(data.links).id(d => d.id).distance(140))
+            .force("charge", d3.forceManyBody().strength(-550))
+            .force("center", d3.forceCenter(width / 2, height / 2))
+            .force("collide", d3.forceCollide().radius(d => d.radius + 18).iterations(2));
+
+        // 渲染多维语义连线
+        const link = svg.append("g").selectAll("line")
+            .data(data.links)
+            .enter().append("line")
+            .attr("class", "link")
+            .attr("stroke", d => linkColors[d.relation] || "#D0CCC0")
+            .attr("stroke-width", d => {
+                if (["师门","姻亲","亲属","身陷其中"].includes(d.relation)) return 2.5;
+                if (["创作","归属"].includes(d.relation)) return 1.5;
+                return 1.8;
+            })
+            .attr("stroke-dasharray", d => {
+                if (["考据关联","影射"].includes(d.relation)) return "5,4";
+                if (["文学影响","文学交游"].includes(d.relation)) return "none";
+                return "none";
+            });
+
+        // 渲染实体节点容器
+        const node = svg.append("g").selectAll("g")
+            .data(data.nodes)
+            .enter().append("g")
+            .call(d3.drag()
+                .on("start", dragstarted)
+                .on("drag", dragged)
+                .on("end", dragended));
+
+        // 绑定琉璃质感球体
+        const circles = node.append("circle")
+            .attr("r", d => d.radius)
+            .attr("fill", (d, i) => `url(#grad-${i})`) 
+            .attr("stroke", "rgba(255,255,255,0.6)") 
+            .attr("stroke-width", 1.5)
+            .style("filter", "drop-shadow(3px 5px 8px rgba(0,0,0,0.15))") 
+            .style("cursor", "pointer");
+
+        // 绑定书法体标签
+        const labels = node.append("text")
+            .text(d => d.id)
+            .attr('x', 0)
+            .attr('y', d => d.radius + 18) 
+            .attr('text-anchor', 'middle');
+
+        // 闭环修复后的刚性点击控制流
+        node.on("click", function(event, d) {
+            event.stopPropagation(); 
+            
+            document.getElementById("panel-title").innerText = d.id;
+            document.getElementById("panel-tag").innerText = d.type + (d.subtype ? ` · ${d.subtype}` : "");
+            document.getElementById("panel-desc").innerHTML = d.desc || `<span style='color:#999;font-style:italic;'>[暂无考据档案]</span>`;
+            
+            document.getElementById("right-panel").classList.add("active");
+            
+            circles.style("opacity", 0.3)
+                   .style("filter", "drop-shadow(3px 5px 8px rgba(0,0,0,0.15))"); 
+            link.style("stroke-opacity", 0.1);
+            labels.style("opacity", 0.3)
+                  .classed("highlight-text", false); 
+            
+            d3.select(this).select("circle").style("opacity", 1).style("filter", "drop-shadow(0 0 15px rgba(212,175,55,0.8))");
+            d3.select(this).select("text").style("opacity", 1).classed("highlight-text", true);
+        });
+
+        svg.on("click", closePanel);
+
+        function closePanel() {
+            document.getElementById("right-panel").classList.remove("active");
+            circles.style("opacity", 1).style("filter", "drop-shadow(3px 5px 8px rgba(0,0,0,0.15))");
+            link.style("stroke-opacity", 0.65);
+            labels.style("opacity", 1).classed("highlight-text", false);
+        }
+
+        node.on("mouseover", function() {
+            d3.select(this).select("circle").transition().duration(200).attr("r", d => d.radius * 1.1);
+        }).on("mouseout", function() {
+            d3.select(this).select("circle").transition().duration(200).attr("r", d => d.radius);
+        });
+
+        simulation.nodes(data.nodes).on("tick", ticked);
+        simulation.force("link").links(data.links);
+
+        function ticked() {
+            link.attr("x1", d => d.source.x).attr("y1", d => d.source.y).attr("x2", d => d.target.x).attr("y2", d => d.target.y);
+            node.attr("transform", d => `translate(${d.x},${d.y})`);
+        }
+
+        function dragstarted(event, d) { if (!event.active) simulation.alphaTarget(0.3).restart(); d.fx = d.x; d.fy = d.y; }
+        function dragged(event, d) { d.fx = event.x; d.fy = event.y; }
+        function dragended(event, d) { if (!event.active) simulation.alphaTarget(0); d.fx = null; d.fy = null; }
+    })
+    .catch(err => {
+        console.error("数据注入管线引发异常: ", err);
+        document.getElementById("graph-container").innerHTML = `<div style="padding:50px; color:#8B3A3A; font-size:16px;">⚠️ 数据库读取受阻。由于现代浏览器安全防线限制，本地纯静态双击运行时禁止跨域 fetch 本地 JSON。此乃正常闭环现象，一旦推送至 GitHub Pages 或使用 Live Server 打开即可无缝秒开。</div>`;
+    });
+</script>
+</body>
+</html>
