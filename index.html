@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <title>文道维基 - 司南图谱 v3.5.3 交互完全体</title>
+    <title>文道维基 - 司南图谱 v3.5.4 协作完全体</title>
     <script src="https://d3js.org/d3.v7.min.js"></script>
     <style>
         :root {
@@ -21,113 +21,107 @@
             overflow: hidden;
         }
 
-        #graph-container {
-            width: 100vw; height: 100vh;
-        }
+        #graph-container { width: 100vw; height: 100vh; }
 
         .node text {
             pointer-events: none;
             text-shadow: 0 0 8px rgba(253, 251, 247, 1), 0 0 3px rgba(253, 251, 247, 0.8);
-            font-size: 15px;
-            font-weight: bold;
-            letter-spacing: 2px;
-            fill: var(--ink-dark);
-            transition: all 0.3s ease;
+            font-size: 15px; font-weight: bold; letter-spacing: 2px;
+            fill: var(--ink-dark); transition: all 0.3s ease;
         }
 
-        .link {
-            stroke-opacity: 0.65;
-            transition: stroke-opacity 0.3s ease, stroke-width 0.2s ease;
-        }
+        .link { stroke-opacity: 0.65; transition: stroke-opacity 0.3s ease, stroke-width 0.2s ease; }
 
-        #top-panel {
-            position: absolute; top: 30px; left: 30px;
-            pointer-events: none;
-            z-index: 50;
-        }
-        #top-panel h1 {
-            color: var(--amber-gold); font-size: 32px; margin: 0 0 10px 0; font-weight: normal; letter-spacing: 4px;
-        }
+        #top-panel { position: absolute; top: 30px; left: 30px; pointer-events: none; z-index: 50; }
+        #top-panel h1 { color: var(--amber-gold); font-size: 32px; margin: 0 0 10px 0; font-weight: normal; letter-spacing: 4px; }
         #top-panel p { margin: 5px 0; font-size: 14px; color: var(--ink-gray); letter-spacing: 2px; }
 
         #right-panel {
             position: absolute; top: 0; right: -450px; 
-            width: 400px; height: 100vh;
-            background: rgba(253, 251, 247, 0.85);
-            backdrop-filter: blur(15px);
-            -webkit-backdrop-filter: blur(15px);
-            border-left: 1px solid rgba(212, 175, 55, 0.3);
-            box-shadow: -10px 0 30px rgba(0,0,0,0.05);
+            width: 400px; height: 100vh; background: rgba(253, 251, 247, 0.85);
+            backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px);
+            border-left: 1px solid rgba(212, 175, 55, 0.3); box-shadow: -10px 0 30px rgba(0,0,0,0.05);
             transition: right 0.5s cubic-bezier(0.19, 1, 0.22, 1); 
-            padding: 50px 40px;
-            box-sizing: border-box;
-            z-index: 100;
-            overflow-y: auto;
+            padding: 50px 40px; box-sizing: border-box; z-index: 100; overflow-y: auto;
         }
-
         #right-panel.active { right: 0; } 
 
-        .panel-close {
-            position: absolute; top: 20px; right: 20px;
-            font-size: 28px; color: var(--ink-gray); cursor: pointer;
-            transition: color 0.3s;
-        }
+        .panel-close { position: absolute; top: 20px; right: 20px; font-size: 28px; color: var(--ink-gray); cursor: pointer; transition: color 0.3s; }
         .panel-close:hover { color: var(--amber-gold); }
 
-        #panel-tag {
-            display: inline-block; padding: 4px 12px;
-            border: 1px solid var(--amber-gold); color: var(--amber-gold);
-            font-size: 12px; letter-spacing: 2px; border-radius: 20px; margin-bottom: 20px;
-        }
-
-        #panel-title {
-            font-size: 36px; margin: 0 0 20px 0; font-weight: normal; color: var(--ink-dark); letter-spacing: 4px;
-        }
-
-        #panel-desc {
-            font-size: 15px; line-height: 2; color: #444; text-align: justify;
-        }
+        #panel-tag { display: inline-block; padding: 4px 12px; border: 1px solid var(--amber-gold); color: var(--amber-gold); font-size: 12px; letter-spacing: 2px; border-radius: 20px; margin-bottom: 20px; }
+        #panel-title { font-size: 36px; margin: 0 0 20px 0; font-weight: normal; color: var(--ink-dark); letter-spacing: 4px; }
+        #panel-desc { font-size: 15px; line-height: 2; color: #444; text-align: justify; }
         
         .highlight-text { fill: var(--amber-gold) !important; text-shadow: none !important; }
 
-        #legend {
-            position: absolute;
-            bottom: 30px;
-            left: 30px;
-            pointer-events: none;
-            z-index: 50;
+        #legend { position: absolute; bottom: 30px; left: 30px; pointer-events: none; z-index: 50; }
+        #legend-title { font-size: 11px; color: var(--ink-gray); letter-spacing: 2px; margin-bottom: 10px; opacity: 0.7; }
+        .legend-item { display: flex; align-items: center; margin-bottom: 6px; }
+        .legend-line { width: 26px; height: 2px; margin-right: 9px; flex-shrink: 0; }
+        .legend-label { font-size: 11px; color: var(--ink-gray); letter-spacing: 1px; }
+
+        /* ========== Phase 4: Modal UI CSS ========== */
+        #open-modal-btn {
+            position: absolute; top: 30px; right: 30px; padding: 8px 18px;
+            border: 1px solid var(--amber-gold); color: var(--amber-gold); background: rgba(253, 251, 247, 0.6);
+            border-radius: 4px; cursor: pointer; font-size: 14px; letter-spacing: 2px; z-index: 50;
+            transition: all 0.3s; font-family: inherit;
         }
-        #legend-title {
-            font-size: 11px;
-            color: var(--ink-gray);
-            letter-spacing: 2px;
-            margin-bottom: 10px;
-            opacity: 0.7;
+        #open-modal-btn:hover { background: var(--amber-gold); color: var(--silk-white); }
+
+        #modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            background: rgba(44, 44, 44, 0.4); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+            z-index: 1000; display: flex; justify-content: center; align-items: center;
+            opacity: 0; pointer-events: none; transition: opacity 0.4s ease;
         }
-        .legend-item {
-            display: flex;
-            align-items: center;
-            margin-bottom: 6px;
+        #modal-overlay.active { opacity: 1; pointer-events: auto; }
+        
+        #modal-box {
+            background: var(--silk-white); width: 450px; max-height: 85vh; overflow-y: auto;
+            padding: 40px; border-radius: 8px; box-shadow: 0 15px 35px rgba(0,0,0,0.15);
+            position: relative; border-top: 3px solid var(--amber-gold);
+            transform: translateY(20px); transition: transform 0.4s ease;
         }
-        .legend-line {
-            width: 26px;
-            height: 2px;
-            margin-right: 9px;
-            flex-shrink: 0;
+        #modal-overlay.active #modal-box { transform: translateY(0); }
+        
+        #modal-close { position: absolute; top: 20px; right: 25px; font-size: 28px; color: var(--ink-gray); cursor: pointer; transition: color 0.3s; }
+        #modal-close:hover { color: var(--amber-gold); }
+
+        #modal-box h2 { margin-top: 0; color: var(--ink-dark); letter-spacing: 3px; font-weight: normal; margin-bottom: 5px; }
+        .modal-subtitle { font-size: 12px; color: var(--ink-gray); letter-spacing: 1px; margin-top: 0; margin-bottom: 20px; opacity: 0.8; }
+        .form-divider { width: 30px; height: 2px; background: var(--amber-gold); margin-bottom: 20px; }
+
+        .form-group { margin-bottom: 20px; }
+        .form-group label { display: block; font-size: 13px; color: var(--ink-gray); margin-bottom: 8px; letter-spacing: 1px; }
+        .form-group input, .form-group select, .form-group textarea {
+            width: 100%; box-sizing: border-box; padding: 10px; border: 1px solid #ddd; border-radius: 4px;
+            font-family: inherit; font-size: 14px; background: transparent; transition: border-color 0.3s;
         }
-        .legend-label {
-            font-size: 11px;
-            color: var(--ink-gray);
-            letter-spacing: 1px;
+        .form-group input:focus, .form-group select:focus, .form-group textarea:focus { outline: none; border-color: var(--amber-gold); }
+        .form-group textarea { resize: vertical; min-height: 80px; }
+        
+        #dynamic-fields { transition: opacity 0.2s ease; }
+        
+        #submit-btn {
+            width: 100%; padding: 12px; margin-top: 10px; background: var(--ink-dark); color: var(--silk-white);
+            border: none; border-radius: 4px; font-size: 15px; letter-spacing: 2px; cursor: pointer; transition: background 0.3s; font-family: inherit;
         }
+        #submit-btn:hover { background: var(--amber-gold); }
+        #submit-btn:disabled { background: var(--ink-gray); cursor: not-allowed; }
+        
+        #form-feedback { margin-top: 15px; font-size: 13px; text-align: center; letter-spacing: 1px; }
+        .feedback-success { color: #6B7A5A; }
+        .feedback-error { color: #8B3A3A; }
     </style>
 </head>
 <body>
 
 <div id="top-panel">
     <h1>文道维基 · 司南图谱</h1>
-    <p>模式：李商隐全量演进图谱 v3.5.3（交互完全体版）</p>
-    <p style="font-size: 12px; opacity: 0.6; margin-top: 15px;">* D3 Zoom & 邻居高亮 & 连线悬停补丁已合拢</p>
+    <p>模式：李商隐全量演进图谱 v3.5.4（协作完全体版）</p>
+    <p style="font-size: 12px; opacity: 0.6; margin-top: 15px;">* 动态表单及协同网络已全量挂载</p>
 </div>
 
 <div id="right-panel">
@@ -140,221 +134,120 @@
 
 <div id="legend">
     <div id="legend-title">关系图例</div>
-    <div class="legend-item">
-        <div class="legend-line" style="background:#8B6914; height:2.5px;"></div>
-        <span class="legend-label">师门</span>
-    </div>
-    <div class="legend-item">
-        <div class="legend-line" style="background:#C17A6F; height:2.5px;"></div>
-        <span class="legend-label">姻亲 · 亲属</span>
-    </div>
-    <div class="legend-item">
-        <div class="legend-line" style="background:#4A7C8E;"></div>
-        <span class="legend-label">文学影响</span>
-    </div>
-    <div class="legend-item">
-        <div class="legend-line" style="background:#6B9FAF;"></div>
-        <span class="legend-label">文学交游</span>
-    </div>
-    <div class="legend-item">
-        <div class="legend-line" style="background:#7A6E5A;"></div>
-        <span class="legend-label">幕僚</span>
-    </div>
-    <div class="legend-item">
-        <div class="legend-line" style="background:#B8860B;"></div>
-        <span class="legend-label">创作</span>
-    </div>
-    <div class="legend-item">
-        <div class="legend-line" style="background:#A0956F;"></div>
-        <span class="legend-label">归属</span>
-    </div>
-    <div class="legend-item">
-        <div class="legend-line" style="background:#8B3A3A; height:2.5px;"></div>
-        <span class="legend-label">政治关系</span>
-    </div>
-    <div class="legend-item">
-        <div class="legend-line" style="background:none; border-top: 2px dashed #6B7A5A;"></div>
-        <span class="legend-label">考据关联</span>
-    </div>
-    <div class="legend-item">
-        <div class="legend-line" style="background:none; border-top: 2px dashed #A05030;"></div>
-        <span class="legend-label">影射</span>
-    </div>
+    <div class="legend-item"><div class="legend-line" style="background:#8B6914; height:2.5px;"></div><span class="legend-label">师门</span></div>
+    <div class="legend-item"><div class="legend-line" style="background:#C17A6F; height:2.5px;"></div><span class="legend-label">姻亲 · 亲属</span></div>
+    <div class="legend-item"><div class="legend-line" style="background:#4A7C8E;"></div><span class="legend-label">文学影响</span></div>
+    <div class="legend-item"><div class="legend-line" style="background:#6B9FAF;"></div><span class="legend-label">文学交游</span></div>
+    <div class="legend-item"><div class="legend-line" style="background:#7A6E5A;"></div><span class="legend-label">幕僚</span></div>
+    <div class="legend-item"><div class="legend-line" style="background:#B8860B;"></div><span class="legend-label">创作</span></div>
+    <div class="legend-item"><div class="legend-line" style="background:#A0956F;"></div><span class="legend-label">归属</span></div>
+    <div class="legend-item"><div class="legend-line" style="background:#8B3A3A; height:2.5px;"></div><span class="legend-label">政治关系</span></div>
+    <div class="legend-item"><div class="legend-line" style="background:none; border-top: 2px dashed #6B7A5A;"></div><span class="legend-label">考据关联</span></div>
+    <div class="legend-item"><div class="legend-line" style="background:none; border-top: 2px dashed #A05030;"></div><span class="legend-label">影射</span></div>
 </div>
 
 <div id="graph-container"></div>
 
+<button id="open-modal-btn">续写文脉</button>
+
+<div id="modal-overlay">
+    <div id="modal-box">
+        <span id="modal-close">×</span>
+        <h2>续写文脉</h2>
+        <p class="modal-subtitle">文道维基 · 协作考据提案通道 · 经审核后合并入图谱</p>
+
+        <div class="form-group">
+            <label>操作类型</label>
+            <select id="op-type">
+                <option value="add-node">新增节点</option>
+                <option value="add-link">新增连线</option>
+                <option value="edit-desc">修改现有节点描述</option>
+            </select>
+        </div>
+
+        <div class="form-divider"></div>
+        <div id="dynamic-fields"></div>
+
+        <div class="form-group">
+            <label>提案人署名（选填）</label>
+            <input type="text" id="field-author" name="author" placeholder="可填姓名或字号，留白亦可" />
+        </div>
+
+        <button id="submit-btn">呈递提案</button>
+        <div id="form-feedback"></div>
+    </div>
+</div>
+
 <script>
-// Phase 3：解耦暴露全局关闭函数
 let closePanel = () => {};
 
-const nodeColors = {
-    "人物": "#5C4033", 
-    "作品": "#8B5A2B", 
-    "类型": "#B8860B", 
-    "事件": "#A0522D"  
-};
-
-const linkColors = {
-    "师门":      "#8B6914",
-    "姻亲":      "#C17A6F",
-    "亲属":      "#C17A6F",
-    "文学影响": "#4A7C8E",
-    "文学交游": "#6B9FAF",
-    "幕僚":      "#7A6E5A",
-    "创作":      "#B8860B",
-    "归属":      "#A0956F",
-    "身陷其中": "#8B3A3A",
-    "牛党核心": "#8B3A3A",
-    "李党相关": "#8B3A3A",
-    "亲历":      "#8B3A3A",
-    "影射":      "#A05030",
-    "考据关联": "#6B7A5A",
-    "政治背景": "#8B3A3A"
-};
+const nodeColors = { "人物": "#5C4033", "作品": "#8B5A2B", "类型": "#B8860B", "事件": "#A0522D" };
+const linkColors = { "师门": "#8B6914", "姻亲": "#C17A6F", "亲属": "#C17A6F", "文学影响": "#4A7C8E", "文学交游": "#6B9FAF", "幕僚": "#7A6E5A", "创作": "#B8860B", "归属": "#A0956F", "身陷其中": "#8B3A3A", "牛党核心": "#8B3A3A", "李党相关": "#8B3A3A", "亲历": "#8B3A3A", "影射": "#A05030", "考据关联": "#6B7A5A", "政治背景": "#8B3A3A" };
 
 const width = window.innerWidth;
 const height = window.innerHeight;
+const svg = d3.select("#graph-container").append("svg").attr("width", width).attr("height", height);
 
-const svg = d3.select("#graph-container").append("svg")
-    .attr("width", width)
-    .attr("height", height);
-
-// Phase 3：画布缩放平移引擎控制
-const zoom = d3.zoom()
-    .scaleExtent([0.3, 3])
-    .on("zoom", (event) => {
-        g.attr("transform", event.transform);
-    });
-
+const zoom = d3.zoom().scaleExtent([0.3, 3]).on("zoom", (event) => { g.attr("transform", event.transform); });
 svg.call(zoom);
 
 const defs = svg.append("defs");
-
-// Phase 3：所有图形元素的统一视口容器层
 const g = svg.append("g").attr("class", "zoom-layer");
 
-// 动态获取同级目录下的 data.json 数据库
 fetch('./data.json')
-    .then(res => {
-        if (!res.ok) throw new Error("无法读取数据文件，状态码：" + res.status);
-        return res.json();
-    })
+    .then(res => { if (!res.ok) throw new Error("读取失败"); return res.json(); })
     .then(data => {
-        // 绑定节点颜色映射
         data.nodes.forEach(n => n.color = nodeColors[n.type] || "#666");
 
-        // 构建发光球体渐变阵列
-        const gradients = defs.selectAll("radialGradient")
-            .data(data.nodes)
-            .enter().append("radialGradient")
-            .attr("id", (d, i) => "grad-" + i)
-            .attr("cx", "35%").attr("cy", "35%").attr("r", "60%");
-
+        const gradients = defs.selectAll("radialGradient").data(data.nodes).enter().append("radialGradient")
+            .attr("id", (d, i) => "grad-" + i).attr("cx", "35%").attr("cy", "35%").attr("r", "60%");
         gradients.append("stop").attr("offset", "0%").attr("stop-color", "#FFFFFF").attr("stop-opacity", 0.9);
         gradients.append("stop").attr("offset", "100%").attr("stop-color", d => d.color).attr("stop-opacity", 1);
 
-        // 力学引擎初始化
         const simulation = d3.forceSimulation(data.nodes)
             .force("link", d3.forceLink(data.links).id(d => d.id).distance(140))
             .force("charge", d3.forceManyBody().strength(-550))
             .force("center", d3.forceCenter(width / 2, height / 2))
             .force("collide", d3.forceCollide().radius(d => d.radius + 18).iterations(2));
 
-        // Phase 3：将连线挂载到统一视口 g 容器中
-        const link = g.append("g").selectAll("line")
-            .data(data.links)
-            .enter().append("line")
-            .attr("class", "link")
-            .attr("stroke", d => linkColors[d.relation] || "#D0CCC0")
-            .attr("stroke-width", d => {
-                if (["师门","姻亲","亲属","身陷其中"].includes(d.relation)) return 2.5;
-                if (["创作","归属"].includes(d.relation)) return 1.5;
-                return 1.8;
-            })
-            .attr("stroke-dasharray", d => {
-                if (["考据关联","影射"].includes(d.relation)) return "5,4";
-                if (["文学影响","文学交游"].includes(d.relation)) return "none";
-                return "none";
-            });
+        const link = g.append("g").selectAll("line").data(data.links).enter().append("line")
+            .attr("class", "link").attr("stroke", d => linkColors[d.relation] || "#D0CCC0")
+            .attr("stroke-width", d => ["师门","姻亲","亲属","身陷其中"].includes(d.relation) ? 2.5 : ["创作","归属"].includes(d.relation) ? 1.5 : 1.8)
+            .attr("stroke-dasharray", d => ["考据关联","影射"].includes(d.relation) ? "5,4" : "none");
 
-        // Phase 3：将节点挂载到统一视口 g 容器中
-        const node = g.append("g").selectAll("g")
-            .data(data.nodes)
-            .enter().append("g")
-            .call(d3.drag()
-                .on("start", dragstarted)
-                .on("drag", dragged)
-                .on("end", dragended));
+        const node = g.append("g").selectAll("g").data(data.nodes).enter().append("g")
+            .call(d3.drag().on("start", dragstarted).on("drag", dragged).on("end", dragended));
 
-        // 绑定琉璃球体
-        const circles = node.append("circle")
-            .attr("r", d => d.radius)
-            .attr("fill", (d, i) => `url(#grad-${i})`) 
-            .attr("stroke", "rgba(255,255,255,0.6)") 
-            .attr("stroke-width", 1.5)
-            .style("filter", "drop-shadow(3px 5px 8px rgba(0,0,0,0.15))") 
-            .style("cursor", "pointer");
+        const circles = node.append("circle").attr("r", d => d.radius).attr("fill", (d, i) => `url(#grad-${i})`) 
+            .attr("stroke", "rgba(255,255,255,0.6)").attr("stroke-width", 1.5)
+            .style("filter", "drop-shadow(3px 5px 8px rgba(0,0,0,0.15))").style("cursor", "pointer");
 
-        // 绑定书法标签
-        const labels = node.append("text")
-            .text(d => d.id)
-            .attr('x', 0)
-            .attr('y', d => d.radius + 18) 
-            .attr('text-anchor', 'middle');
+        const labels = node.append("text").text(d => d.id).attr('x', 0).attr('y', d => d.radius + 18).attr('text-anchor', 'middle');
 
-        // Phase 3：连线悬停语义标注（Tooltip 容器）
-        const tooltip = d3.select("body").append("div")
-            .style("position", "absolute")
-            .style("background", "rgba(253,251,247,0.95)")
-            .style("border", "1px solid rgba(212,175,55,0.4)")
-            .style("border-radius", "6px")
-            .style("padding", "5px 12px")
-            .style("font-size", "12px")
-            .style("color", "#2C2C2C")
-            .style("letter-spacing", "2px")
-            .style("pointer-events", "none")
-            .style("opacity", 0)
-            .style("z-index", 200)
-            .style("transition", "opacity 0.2s ease");
+        const tooltip = d3.select("body").append("div").style("position", "absolute").style("background", "rgba(253,251,247,0.95)")
+            .style("border", "1px solid rgba(212,175,55,0.4)").style("border-radius", "6px").style("padding", "5px 12px")
+            .style("font-size", "12px").style("color", "#2C2C2C").style("letter-spacing", "2px").style("pointer-events", "none")
+            .style("opacity", 0).style("z-index", 200).style("transition", "opacity 0.2s ease");
 
-        link
-            .style("cursor", "default")
+        link.style("cursor", "default")
             .on("mouseover", function(event, d) {
-                d3.select(this).attr("stroke-width", function() {
-                    return parseFloat(d3.select(this).attr("stroke-width")) * 1.8;
-                });
-                tooltip
-                    .style("opacity", 1)
-                    .text(d.relation);
+                d3.select(this).attr("stroke-width", function() { return parseFloat(d3.select(this).attr("stroke-width")) * 1.8; });
+                tooltip.style("opacity", 1).text(d.relation);
             })
-            .on("mousemove", function(event) {
-                tooltip
-                    .style("left", (event.pageX + 14) + "px")
-                    .style("top",  (event.pageY - 28) + "px");
-            })
+            .on("mousemove", function(event) { tooltip.style("left", (event.pageX + 14) + "px").style("top",  (event.pageY - 28) + "px"); })
             .on("mouseout", function(event, d) {
-                d3.select(this).attr("stroke-width", () => {
-                    if (["师门","姻亲","亲属","身陷其中"].includes(d.relation)) return 2.5;
-                    if (["创作","归属"].includes(d.relation)) return 1.5;
-                    return 1.8;
-                });
+                d3.select(this).attr("stroke-width", () => ["师门","姻亲","亲属","身陷其中"].includes(d.relation) ? 2.5 : ["创作","归属"].includes(d.relation) ? 1.5 : 1.8);
                 tooltip.style("opacity", 0);
             });
 
-        // Phase 3：替换刚性点击控制流，实现邻居高亮
         node.on("click", function(event, d) {
             event.stopPropagation();
-
-            // 更新右侧白卷面板
             document.getElementById("panel-title").innerText = d.id;
             document.getElementById("panel-tag").innerText = d.type + (d.subtype ? ` · ${d.subtype}` : "");
             document.getElementById("panel-desc").innerHTML = d.desc || `<span style='color:#999;font-style:italic;'>[暂无考据档案]</span>`;
             document.getElementById("right-panel").classList.add("active");
 
-            // 深度构建邻居一阶关联集合
-            const neighborIds = new Set();
-            neighborIds.add(d.id);
+            const neighborIds = new Set([d.id]);
             data.links.forEach(l => {
                 const sourceId = typeof l.source === "object" ? l.source.id : l.source;
                 const targetId = typeof l.target === "object" ? l.target.id : l.target;
@@ -362,9 +255,7 @@ fetch('./data.json')
                 if (targetId === d.id) neighborIds.add(sourceId);
             });
 
-            // 连线淡变控制逻辑
-            link
-                .style("stroke-opacity", l => {
+            link.style("stroke-opacity", l => {
                     const sourceId = typeof l.source === "object" ? l.source.id : l.source;
                     const targetId = typeof l.target === "object" ? l.target.id : l.target;
                     return (sourceId === d.id || targetId === d.id) ? 0.9 : 0.05;
@@ -373,52 +264,27 @@ fetch('./data.json')
                     const sourceId = typeof l.source === "object" ? l.source.id : l.source;
                     const targetId = typeof l.target === "object" ? l.target.id : l.target;
                     const isNeighbor = sourceId === d.id || targetId === d.id;
-                    if (!isNeighbor) {
-                        if (["师门","姻亲","亲属","身陷其中"].includes(l.relation)) return 2.5;
-                        if (["创作","归属"].includes(l.relation)) return 1.5;
-                        return 1.8;
-                    }
-                    if (["师门","姻亲","亲属","身陷其中"].includes(l.relation)) return 4;
-                    if (["创作","归属"].includes(l.relation)) return 2.5;
-                    return 3;
+                    if (!isNeighbor) return ["师门","姻亲","亲属","身陷其中"].includes(l.relation) ? 2.5 : ["创作","归属"].includes(l.relation) ? 1.5 : 1.8;
+                    return ["师门","姻亲","亲属","身陷其中"].includes(l.relation) ? 4 : ["创作","归属"].includes(l.relation) ? 2.5 : 3;
                 });
 
-            // 球体散发能量与邻居维持
-            circles
-                .style("opacity", n => neighborIds.has(n.id) ? 1 : 0.12)
-                .style("filter", n => {
-                    if (n.id === d.id) return "drop-shadow(0 0 15px rgba(212,175,55,0.9))";
-                    if (neighborIds.has(n.id)) return "drop-shadow(0 0 8px rgba(212,175,55,0.4))";
-                    return "drop-shadow(3px 5px 8px rgba(0,0,0,0.15))";
-                });
-
-            labels
-                .style("opacity", n => neighborIds.has(n.id) ? 1 : 0.08)
-                .classed("highlight-text", n => n.id === d.id);
+            circles.style("opacity", n => neighborIds.has(n.id) ? 1 : 0.12)
+                .style("filter", n => n.id === d.id ? "drop-shadow(0 0 15px rgba(212,175,55,0.9))" : neighborIds.has(n.id) ? "drop-shadow(0 0 8px rgba(212,175,55,0.4))" : "drop-shadow(3px 5px 8px rgba(0,0,0,0.15))");
+            labels.style("opacity", n => neighborIds.has(n.id) ? 1 : 0.08).classed("highlight-text", n => n.id === d.id);
         });
 
         svg.on("click", closePanel);
         d3.select("#panel-close-btn").on("click", closePanel);
 
-        // 赋能全局闭合变量
         closePanel = function() {
             document.getElementById("right-panel").classList.remove("active");
             circles.style("opacity", 1).style("filter", "drop-shadow(3px 5px 8px rgba(0,0,0,0.15))");
-            link
-                .style("stroke-opacity", 0.65)
-                .attr("stroke-width", d => {
-                    if (["师门","姻亲","亲属","身陷其中"].includes(d.relation)) return 2.5;
-                    if (["创作","归属"].includes(d.relation)) return 1.5;
-                    return 1.8;
-                });
+            link.style("stroke-opacity", 0.65).attr("stroke-width", d => ["师门","姻亲","亲属","身陷其中"].includes(d.relation) ? 2.5 : ["创作","归属"].includes(d.relation) ? 1.5 : 1.8);
             labels.style("opacity", 1).classed("highlight-text", false);
         };
 
-        node.on("mouseover", function() {
-            d3.select(this).select("circle").transition().duration(200).attr("r", d => d.radius * 1.1);
-        }).on("mouseout", function() {
-            d3.select(this).select("circle").transition().duration(200).attr("r", d => d.radius);
-        });
+        node.on("mouseover", function() { d3.select(this).select("circle").transition().duration(200).attr("r", d => d.radius * 1.1); })
+            .on("mouseout", function() { d3.select(this).select("circle").transition().duration(200).attr("r", d => d.radius); });
 
         simulation.nodes(data.nodes).on("tick", ticked);
         simulation.force("link").links(data.links);
@@ -433,9 +299,135 @@ fetch('./data.json')
         function dragended(event, d) { if (!event.active) simulation.alphaTarget(0); d.fx = null; d.fy = null; }
     })
     .catch(err => {
-        console.error("数据注入管线引发异常: ", err);
-        document.getElementById("graph-container").innerHTML = `<div style="padding:50px; color:#8B3A3A; font-size:16px;">⚠️ 数据库读取受阻。由于现代浏览器安全防线限制，本地纯静态双击运行时禁止跨域 fetch 本地 JSON。此乃正常闭环现象，一旦推送至 GitHub Pages 或使用 Live Server 打开即可无缝秒开。</div>`;
+        console.error("数据异常: ", err);
+        document.getElementById("graph-container").innerHTML = `<div style="padding:50px; color:#8B3A3A;">⚠️ 本地 JSON 跨域限制，请用 Live Server 或 GitHub Pages 打开。</div>`;
     });
+
+/* ========== Phase 4：续写文脉 Modal 逻辑 ========== */
+
+const FORMSPREE_ENDPOINT = "https://formspree.io/f/xeedepkg";
+
+const fieldConfigs = {
+    "add-node": [
+        { id: "node-id",      name: "node_id",      label: "节点名称",      type: "input",    placeholder: "例：韩愈、无题、牛李党争" },
+        { id: "node-type",    name: "node_type",    label: "节点类型",      type: "select",   options: ["人物","作品","类型","事件"] },
+        { id: "node-subtype", name: "node_subtype", label: "子类型（选填）", type: "input",    placeholder: "例：唐代诗人、近体诗" },
+        { id: "node-desc",    name: "node_desc",    label: "考据描述",      type: "textarea", placeholder: "请简述该节点的文学史意义与关联背景……" }
+    ],
+    "add-link": [
+        { id: "link-source",   name: "link_source",   label: "起点节点",  type: "input",  placeholder: "例：李商隐" },
+        { id: "link-target",   name: "link_target",   label: "终点节点",  type: "input",  placeholder: "例：令狐楚" },
+        { id: "link-relation", name: "link_relation", label: "关系类型",  type: "select", options: ["师门","姻亲","亲属","文学影响","文学交游","幕僚","创作","归属","身陷其中","牛党核心","李党相关","亲历","影射","考据关联","政治背景"] },
+        { id: "link-note",     name: "link_note",     label: "考据依据（选填）", type: "textarea", placeholder: "请注明文献出处或考据理由……" }
+    ],
+    "edit-desc": [
+        { id: "edit-target", name: "edit_target", label: "目标节点名称", type: "input",    placeholder: "请填写需修改描述的节点名称" },
+        { id: "edit-old",    name: "edit_old",    label: "原描述摘要",   type: "textarea", placeholder: "请摘录原描述的关键句，便于审核定位……" },
+        { id: "edit-new",    name: "edit_new",    label: "修改后描述",   type: "textarea", placeholder: "请填写修改后的完整描述内容……" },
+        { id: "edit-reason", name: "edit_reason", label: "修改依据",     type: "textarea", placeholder: "请注明文献出处或修改理由……" }
+    ]
+};
+
+function renderFields(opType) {
+    const container = document.getElementById("dynamic-fields");
+    container.style.opacity = 0;
+    setTimeout(() => {
+        container.innerHTML = "";
+        const config = fieldConfigs[opType];
+        config.forEach(f => {
+            const group = document.createElement("div");
+            group.className = "form-group";
+            const label = document.createElement("label");
+            label.textContent = f.label;
+            group.appendChild(label);
+            let input;
+            if (f.type === "textarea") {
+                input = document.createElement("textarea");
+                input.placeholder = f.placeholder || "";
+            } else if (f.type === "select") {
+                input = document.createElement("select");
+                f.options.forEach(opt => {
+                    const option = document.createElement("option");
+                    option.value = opt; option.textContent = opt;
+                    input.appendChild(option);
+                });
+            } else {
+                input = document.createElement("input");
+                input.type = "text"; input.placeholder = f.placeholder || "";
+            }
+            input.id = f.id; input.name = f.name;
+            group.appendChild(input); container.appendChild(group);
+        });
+        container.style.opacity = 1;
+    }, 180);
+}
+
+renderFields("add-node");
+
+document.getElementById("op-type").addEventListener("change", function() {
+    renderFields(this.value);
+    document.getElementById("form-feedback").textContent = "";
+});
+
+document.getElementById("open-modal-btn").addEventListener("click", () => { document.getElementById("modal-overlay").classList.add("active"); });
+document.getElementById("modal-close").addEventListener("click", closeModal);
+document.getElementById("modal-overlay").addEventListener("click", function(e) { if (e.target === this) closeModal(); });
+
+function closeModal() {
+    document.getElementById("modal-overlay").classList.remove("active");
+    document.getElementById("form-feedback").textContent = "";
+}
+
+document.getElementById("submit-btn").addEventListener("click", async function() {
+    const opType  = document.getElementById("op-type").value;
+    const author  = document.getElementById("field-author").value.trim();
+    const btn     = document.getElementById("submit-btn");
+    const feedback = document.getElementById("form-feedback");
+
+    const formData = new FormData();
+    formData.append("operation_type", opType);
+    formData.append("author", author || "（匿名）");
+
+    const config = fieldConfigs[opType];
+    let hasEmpty = false;
+    config.forEach(f => {
+        const isOptional = f.label.includes("选填");
+        const el = document.getElementById(f.id);
+        const val = el ? el.value.trim() : "";
+        if (!isOptional && !val) hasEmpty = true;
+        formData.append(f.name, val || "（未填写）");
+    });
+
+    if (hasEmpty) {
+        feedback.className = "feedback-error";
+        feedback.textContent = "⚠ 请填写所有必填字段后再行呈递";
+        return;
+    }
+
+    btn.disabled = true; btn.textContent = "呈递中……"; feedback.textContent = "";
+
+    try {
+        const res = await fetch(FORMSPREE_ENDPOINT, {
+            method: "POST", body: formData, headers: { "Accept": "application/json" }
+        });
+
+        if (res.ok) {
+            feedback.className = "feedback-success";
+            feedback.textContent = "✦ 提案已呈递，经审核后将合并入图谱，感谢文脉赓续之举";
+            btn.textContent = "已呈递";
+            setTimeout(() => { closeModal(); btn.disabled = false; btn.textContent = "呈递提案"; }, 3000);
+        } else {
+            const data = await res.json();
+            feedback.className = "feedback-error";
+            feedback.textContent = "✦ 提案通道异常：" + (data.error || "请稍后重试");
+            btn.disabled = false; btn.textContent = "呈递提案";
+        }
+    } catch (e) {
+        feedback.className = "feedback-error";
+        feedback.textContent = "✦ 网络连接受阻，请检查连接后重试";
+        btn.disabled = false; btn.textContent = "呈递提案";
+    }
+});
 </script>
 </body>
 </html>
