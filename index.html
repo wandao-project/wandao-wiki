@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <title>文道维基 - 司南图谱 v3.5.2 异步分离版</title>
+    <title>文道维基 - 司南图谱 v3.5.3 交互完全体</title>
     <script src="https://d3js.org/d3.v7.min.js"></script>
     <style>
         :root {
@@ -37,7 +37,7 @@
 
         .link {
             stroke-opacity: 0.65;
-            transition: stroke-opacity 0.3s ease;
+            transition: stroke-opacity 0.3s ease, stroke-width 0.2s ease;
         }
 
         #top-panel {
@@ -126,12 +126,12 @@
 
 <div id="top-panel">
     <h1>文道维基 · 司南图谱</h1>
-    <p>模式：李商隐全量演进图谱 v3.5.2（JSON 异步分离版）</p>
-    <p style="font-size: 12px; opacity: 0.6; margin-top: 15px;">* 数据已安全分离，底层完全遵循 GitOps 规范流程</p>
+    <p>模式：李商隐全量演进图谱 v3.5.3（交互完全体版）</p>
+    <p style="font-size: 12px; opacity: 0.6; margin-top: 15px;">* D3 Zoom & 邻居高亮 & 连线悬停补丁已合拢</p>
 </div>
 
 <div id="right-panel">
-    <div class="panel-close" onclick="closePanel()">×</div>
+    <div class="panel-close" id="panel-close-btn">×</div>
     <div id="panel-tag">节点类型</div>
     <h2 id="panel-title">节点名称</h2>
     <div style="width: 30px; height: 2px; background: var(--amber-gold); margin-bottom: 20px;"></div>
@@ -185,6 +185,9 @@
 <div id="graph-container"></div>
 
 <script>
+// Phase 3：解耦暴露全局关闭函数
+let closePanel = () => {};
+
 const nodeColors = {
     "人物": "#5C4033", 
     "作品": "#8B5A2B", 
@@ -217,9 +220,21 @@ const svg = d3.select("#graph-container").append("svg")
     .attr("width", width)
     .attr("height", height);
 
+// Phase 3：画布缩放平移引擎控制
+const zoom = d3.zoom()
+    .scaleExtent([0.3, 3])
+    .on("zoom", (event) => {
+        g.attr("transform", event.transform);
+    });
+
+svg.call(zoom);
+
 const defs = svg.append("defs");
 
-// 【正宫娘娘核心资产】利用 Fetch API 动态异步获取同级目录下的 data.json 数据库
+// Phase 3：所有图形元素的统一视口容器层
+const g = svg.append("g").attr("class", "zoom-layer");
+
+// 动态获取同级目录下的 data.json 数据库
 fetch('./data.json')
     .then(res => {
         if (!res.ok) throw new Error("无法读取数据文件，状态码：" + res.status);
@@ -229,7 +244,7 @@ fetch('./data.json')
         // 绑定节点颜色映射
         data.nodes.forEach(n => n.color = nodeColors[n.type] || "#666");
 
-        // 动态构建发光球体渐变阵列
+        // 构建发光球体渐变阵列
         const gradients = defs.selectAll("radialGradient")
             .data(data.nodes)
             .enter().append("radialGradient")
@@ -239,15 +254,15 @@ fetch('./data.json')
         gradients.append("stop").attr("offset", "0%").attr("stop-color", "#FFFFFF").attr("stop-opacity", 0.9);
         gradients.append("stop").attr("offset", "100%").attr("stop-color", d => d.color).attr("stop-opacity", 1);
 
-        // 核心力学引擎初始化
+        // 力学引擎初始化
         const simulation = d3.forceSimulation(data.nodes)
             .force("link", d3.forceLink(data.links).id(d => d.id).distance(140))
             .force("charge", d3.forceManyBody().strength(-550))
             .force("center", d3.forceCenter(width / 2, height / 2))
             .force("collide", d3.forceCollide().radius(d => d.radius + 18).iterations(2));
 
-        // 渲染多维语义连线
-        const link = svg.append("g").selectAll("line")
+        // Phase 3：将连线挂载到统一视口 g 容器中
+        const link = g.append("g").selectAll("line")
             .data(data.links)
             .enter().append("line")
             .attr("class", "link")
@@ -263,8 +278,8 @@ fetch('./data.json')
                 return "none";
             });
 
-        // 渲染实体节点容器
-        const node = svg.append("g").selectAll("g")
+        // Phase 3：将节点挂载到统一视口 g 容器中
+        const node = g.append("g").selectAll("g")
             .data(data.nodes)
             .enter().append("g")
             .call(d3.drag()
@@ -272,7 +287,7 @@ fetch('./data.json')
                 .on("drag", dragged)
                 .on("end", dragended));
 
-        // 绑定琉璃质感球体
+        // 绑定琉璃球体
         const circles = node.append("circle")
             .attr("r", d => d.radius)
             .attr("fill", (d, i) => `url(#grad-${i})`) 
@@ -281,41 +296,123 @@ fetch('./data.json')
             .style("filter", "drop-shadow(3px 5px 8px rgba(0,0,0,0.15))") 
             .style("cursor", "pointer");
 
-        // 绑定书法体标签
+        // 绑定书法标签
         const labels = node.append("text")
             .text(d => d.id)
             .attr('x', 0)
             .attr('y', d => d.radius + 18) 
             .attr('text-anchor', 'middle');
 
-        // 闭环修复后的刚性点击控制流
+        // Phase 3：连线悬停语义标注（Tooltip 容器）
+        const tooltip = d3.select("body").append("div")
+            .style("position", "absolute")
+            .style("background", "rgba(253,251,247,0.95)")
+            .style("border", "1px solid rgba(212,175,55,0.4)")
+            .style("border-radius", "6px")
+            .style("padding", "5px 12px")
+            .style("font-size", "12px")
+            .style("color", "#2C2C2C")
+            .style("letter-spacing", "2px")
+            .style("pointer-events", "none")
+            .style("opacity", 0)
+            .style("z-index", 200)
+            .style("transition", "opacity 0.2s ease");
+
+        link
+            .style("cursor", "default")
+            .on("mouseover", function(event, d) {
+                d3.select(this).attr("stroke-width", function() {
+                    return parseFloat(d3.select(this).attr("stroke-width")) * 1.8;
+                });
+                tooltip
+                    .style("opacity", 1)
+                    .text(d.relation);
+            })
+            .on("mousemove", function(event) {
+                tooltip
+                    .style("left", (event.pageX + 14) + "px")
+                    .style("top",  (event.pageY - 28) + "px");
+            })
+            .on("mouseout", function(event, d) {
+                d3.select(this).attr("stroke-width", () => {
+                    if (["师门","姻亲","亲属","身陷其中"].includes(d.relation)) return 2.5;
+                    if (["创作","归属"].includes(d.relation)) return 1.5;
+                    return 1.8;
+                });
+                tooltip.style("opacity", 0);
+            });
+
+        // Phase 3：替换刚性点击控制流，实现邻居高亮
         node.on("click", function(event, d) {
-            event.stopPropagation(); 
-            
+            event.stopPropagation();
+
+            // 更新右侧白卷面板
             document.getElementById("panel-title").innerText = d.id;
             document.getElementById("panel-tag").innerText = d.type + (d.subtype ? ` · ${d.subtype}` : "");
             document.getElementById("panel-desc").innerHTML = d.desc || `<span style='color:#999;font-style:italic;'>[暂无考据档案]</span>`;
-            
             document.getElementById("right-panel").classList.add("active");
-            
-            circles.style("opacity", 0.3)
-                   .style("filter", "drop-shadow(3px 5px 8px rgba(0,0,0,0.15))"); 
-            link.style("stroke-opacity", 0.1);
-            labels.style("opacity", 0.3)
-                  .classed("highlight-text", false); 
-            
-            d3.select(this).select("circle").style("opacity", 1).style("filter", "drop-shadow(0 0 15px rgba(212,175,55,0.8))");
-            d3.select(this).select("text").style("opacity", 1).classed("highlight-text", true);
+
+            // 深度构建邻居一阶关联集合
+            const neighborIds = new Set();
+            neighborIds.add(d.id);
+            data.links.forEach(l => {
+                const sourceId = typeof l.source === "object" ? l.source.id : l.source;
+                const targetId = typeof l.target === "object" ? l.target.id : l.target;
+                if (sourceId === d.id) neighborIds.add(targetId);
+                if (targetId === d.id) neighborIds.add(sourceId);
+            });
+
+            // 连线淡变控制逻辑
+            link
+                .style("stroke-opacity", l => {
+                    const sourceId = typeof l.source === "object" ? l.source.id : l.source;
+                    const targetId = typeof l.target === "object" ? l.target.id : l.target;
+                    return (sourceId === d.id || targetId === d.id) ? 0.9 : 0.05;
+                })
+                .attr("stroke-width", l => {
+                    const sourceId = typeof l.source === "object" ? l.source.id : l.source;
+                    const targetId = typeof l.target === "object" ? l.target.id : l.target;
+                    const isNeighbor = sourceId === d.id || targetId === d.id;
+                    if (!isNeighbor) {
+                        if (["师门","姻亲","亲属","身陷其中"].includes(l.relation)) return 2.5;
+                        if (["创作","归属"].includes(l.relation)) return 1.5;
+                        return 1.8;
+                    }
+                    if (["师门","姻亲","亲属","身陷其中"].includes(l.relation)) return 4;
+                    if (["创作","归属"].includes(l.relation)) return 2.5;
+                    return 3;
+                });
+
+            // 球体散发能量与邻居维持
+            circles
+                .style("opacity", n => neighborIds.has(n.id) ? 1 : 0.12)
+                .style("filter", n => {
+                    if (n.id === d.id) return "drop-shadow(0 0 15px rgba(212,175,55,0.9))";
+                    if (neighborIds.has(n.id)) return "drop-shadow(0 0 8px rgba(212,175,55,0.4))";
+                    return "drop-shadow(3px 5px 8px rgba(0,0,0,0.15))";
+                });
+
+            labels
+                .style("opacity", n => neighborIds.has(n.id) ? 1 : 0.08)
+                .classed("highlight-text", n => n.id === d.id);
         });
 
         svg.on("click", closePanel);
+        d3.select("#panel-close-btn").on("click", closePanel);
 
-        function closePanel() {
+        // 赋能全局闭合变量
+        closePanel = function() {
             document.getElementById("right-panel").classList.remove("active");
             circles.style("opacity", 1).style("filter", "drop-shadow(3px 5px 8px rgba(0,0,0,0.15))");
-            link.style("stroke-opacity", 0.65);
+            link
+                .style("stroke-opacity", 0.65)
+                .attr("stroke-width", d => {
+                    if (["师门","姻亲","亲属","身陷其中"].includes(d.relation)) return 2.5;
+                    if (["创作","归属"].includes(d.relation)) return 1.5;
+                    return 1.8;
+                });
             labels.style("opacity", 1).classed("highlight-text", false);
-        }
+        };
 
         node.on("mouseover", function() {
             d3.select(this).select("circle").transition().duration(200).attr("r", d => d.radius * 1.1);
