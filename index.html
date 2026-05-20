@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <title>文道维基 - 司南图谱 v3.5.4 协作完全体</title>
+    <title>文道维基 - 司南图谱 v3.5.5 移动适配版</title>
     <script src="https://d3js.org/d3.v7.min.js"></script>
     <style>
         :root {
@@ -270,14 +270,115 @@
         }
         .feedback-success { color: #6B8E6B; }
         .feedback-error   { color: #8B3A3A; }
+
+        /* ========== Phase 5：移动端适配 ========== */
+        @media (max-width: 768px) {
+            #top-panel h1 {
+                font-size: 22px;
+                letter-spacing: 2px;
+            }
+            #top-panel p {
+                font-size: 12px;
+            }
+
+            /* 右侧面板改为底部滑入式 */
+            #right-panel {
+                top: auto;
+                bottom: -100%;
+                right: 0;
+                left: 0;
+                width: 100%;
+                height: 62vh;
+                border-left: none;
+                border-top: 1px solid rgba(212, 175, 55, 0.3);
+                border-radius: 16px 16px 0 0;
+                box-shadow: 0 -10px 30px rgba(0,0,0,0.08);
+                transition: bottom 0.5s cubic-bezier(0.19, 1, 0.22, 1);
+                padding: 36px 28px 40px;
+                overflow-y: auto;
+            }
+            #right-panel.active {
+                right: 0;
+                bottom: 0;
+            }
+
+            /* 面板顶部拖拽指示条 */
+            #right-panel::before {
+                content: '';
+                display: block;
+                width: 36px;
+                height: 4px;
+                background: rgba(212, 175, 55, 0.4);
+                border-radius: 2px;
+                margin: -18px auto 20px;
+            }
+
+            #panel-title {
+                font-size: 26px;
+            }
+
+            /* 图例折叠至左下角小按钮 */
+            #legend {
+                bottom: 16px;
+                left: 16px;
+                pointer-events: auto; /* 确保移动端可点击 */
+            }
+            #legend-title {
+                display: none;
+            }
+            .legend-item {
+                display: none;
+            }
+            #legend-toggle {
+                display: flex !important;
+            }
+            #legend-drawer {
+                display: none;
+                flex-direction: column;
+                background: rgba(253, 251, 247, 0.95);
+                border: 1px solid rgba(212, 175, 55, 0.3);
+                border-radius: 8px;
+                padding: 12px 16px;
+                margin-bottom: 8px;
+                backdrop-filter: blur(10px);
+            }
+            #legend-drawer.open {
+                display: flex;
+            }
+            #legend-drawer .legend-item {
+                display: flex;
+            }
+
+            /* 续写文脉按钮上移，避开底部安全区 */
+            #open-modal-btn {
+                bottom: 80px;
+                right: 16px;
+                font-size: 13px;
+                padding: 9px 18px;
+                letter-spacing: 2px;
+            }
+
+            /* Modal 全屏化 */
+            #modal-box {
+                width: 100%;
+                max-width: 100%;
+                max-height: 90vh;
+                border-radius: 16px 16px 0 0;
+                padding: 36px 24px 32px;
+                margin: auto auto 0;
+            }
+            #modal-overlay {
+                align-items: flex-end;
+            }
+        }
     </style>
 </head>
 <body>
 
 <div id="top-panel">
     <h1>文道维基 · 司南图谱</h1>
-    <p>模式：李商隐全量演进图谱 v3.5.4（协作完全体版）</p>
-    <p style="font-size: 12px; opacity: 0.6; margin-top: 15px;">* 动态表单及协同网络已全量挂载</p>
+    <p>模式：李商隐全量演进图谱 v3.5.5（移动端适配版）</p>
+    <p style="font-size: 12px; opacity: 0.6; margin-top: 15px;">* 动态表单及移动端自适应已全量挂载</p>
 </div>
 
 <div id="right-panel">
@@ -289,17 +390,34 @@
 </div>
 
 <div id="legend">
+    <div id="legend-toggle" style="display:none; align-items:center; cursor:pointer; margin-bottom:6px;"
+         onclick="document.getElementById('legend-drawer').classList.toggle('open')">
+        <div style="width:18px;height:2px;background:var(--amber-gold);margin-right:6px;"></div>
+        <span style="font-size:11px;color:var(--ink-gray);letter-spacing:2px;">图例</span>
+    </div>
+    <div id="legend-drawer">
+        <div class="legend-item"><div class="legend-line" style="background:#8B6914;height:2.5px;"></div><span class="legend-label">师门</span></div>
+        <div class="legend-item"><div class="legend-line" style="background:#C17A6F;height:2.5px;"></div><span class="legend-label">姻亲·亲属</span></div>
+        <div class="legend-item"><div class="legend-line" style="background:#4A7C8E;"></div><span class="legend-label">文学影响</span></div>
+        <div class="legend-item"><div class="legend-line" style="background:#6B9FAF;"></div><span class="legend-label">文学交游</span></div>
+        <div class="legend-item"><div class="legend-line" style="background:#7A6E5A;"></div><span class="legend-label">幕僚</span></div>
+        <div class="legend-item"><div class="legend-line" style="background:#B8860B;"></div><span class="legend-label">创作</span></div>
+        <div class="legend-item"><div class="legend-line" style="background:#A0956F;"></div><span class="legend-label">归属</span></div>
+        <div class="legend-item"><div class="legend-line" style="background:#8B3A3A;height:2.5px;"></div><span class="legend-label">政治关系</span></div>
+        <div class="legend-item"><div class="legend-line" style="background:none;border-top:2px dashed #6B7A5A;"></div><span class="legend-label">考据关联</span></div>
+        <div class="legend-item"><div class="legend-line" style="background:none;border-top:2px dashed #A05030;"></div><span class="legend-label">影射</span></div>
+    </div>
     <div id="legend-title">关系图例</div>
-    <div class="legend-item"><div class="legend-line" style="background:#8B6914; height:2.5px;"></div><span class="legend-label">师门</span></div>
-    <div class="legend-item"><div class="legend-line" style="background:#C17A6F; height:2.5px;"></div><span class="legend-label">姻亲 · 亲属</span></div>
+    <div class="legend-item"><div class="legend-line" style="background:#8B6914;height:2.5px;"></div><span class="legend-label">师门</span></div>
+    <div class="legend-item"><div class="legend-line" style="background:#C17A6F;height:2.5px;"></div><span class="legend-label">姻亲·亲属</span></div>
     <div class="legend-item"><div class="legend-line" style="background:#4A7C8E;"></div><span class="legend-label">文学影响</span></div>
     <div class="legend-item"><div class="legend-line" style="background:#6B9FAF;"></div><span class="legend-label">文学交游</span></div>
     <div class="legend-item"><div class="legend-line" style="background:#7A6E5A;"></div><span class="legend-label">幕僚</span></div>
     <div class="legend-item"><div class="legend-line" style="background:#B8860B;"></div><span class="legend-label">创作</span></div>
     <div class="legend-item"><div class="legend-line" style="background:#A0956F;"></div><span class="legend-label">归属</span></div>
-    <div class="legend-item"><div class="legend-line" style="background:#8B3A3A; height:2.5px;"></div><span class="legend-label">政治关系</span></div>
-    <div class="legend-item"><div class="legend-line" style="background:none; border-top: 2px dashed #6B7A5A;"></div><span class="legend-label">考据关联</span></div>
-    <div class="legend-item"><div class="legend-line" style="background:none; border-top: 2px dashed #A05030;"></div><span class="legend-label">影射</span></div>
+    <div class="legend-item"><div class="legend-line" style="background:#8B3A3A;height:2.5px;"></div><span class="legend-label">政治关系</span></div>
+    <div class="legend-item"><div class="legend-line" style="background:none;border-top:2px dashed #6B7A5A;"></div><span class="legend-label">考据关联</span></div>
+    <div class="legend-item"><div class="legend-line" style="background:none;border-top:2px dashed #A05030;"></div><span class="legend-label">影射</span></div>
 </div>
 
 <div id="graph-container"></div>
@@ -714,6 +832,27 @@ document.getElementById("submit-btn").addEventListener("click", async function()
         btn.textContent = "呈递提案";
     }
 });
+
+/* ========== Phase 5：触控适配 ========== */
+
+// 防止双指缩放与拖拽冲突
+document.getElementById("graph-container").style.touchAction = "none";
+
+// 移动端关闭面板：向下滑动手势
+(function() {
+    const panel = document.getElementById("right-panel");
+    let startY = 0;
+    panel.addEventListener("touchstart", e => {
+        startY = e.touches[0].clientY;
+    }, { passive: true });
+    panel.addEventListener("touchend", e => {
+        const deltaY = e.changedTouches[0].clientY - startY;
+        if (deltaY > 60) closePanel();
+    }, { passive: true });
+})();
+
+// 视口缩放锁定（防止双击放大页面）
+document.addEventListener("dblclick", e => e.preventDefault(), { passive: false });
 </script>
 </body>
 </html>
