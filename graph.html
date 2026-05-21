@@ -10,7 +10,7 @@
         import { getFirestore, doc, getDoc, onSnapshot, updateDoc, arrayUnion } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
         import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
-        // 主子亲手摘回的云端至尊大印
+        // 云端凭证大印
         const firebaseConfig = {
             apiKey: "AIzaSyDBexjyMOKoCi1iEmSDE-YlbcP-ilrq1Nc",
             authDomain: "wandao-wiki.firebaseapp.com",
@@ -26,39 +26,18 @@
         const auth = getAuth(app);
         const graphRef = doc(db, "graph", "main");
 
-        // 全局共享基线接口
         window._fb = { db, auth, graphRef, updateDoc, arrayUnion, getDoc };
 
-        /* ── [D-1] 数据拉取：onSnapshot 实时监听全网同步 (修复竞态版) ── */
-        onSnapshot(graphRef, (snapshot) => {
-            if (!snapshot.exists()) {
-                console.warn("Firestore: graph/main 文档不存在，请在控制台创建该初始文档。");
-                document.getElementById("graph-container").innerHTML = `<div style="padding:50px; color:#8B3A3A;">⚠️ 云端数据库尚未初始化，请确保 graph 集合下存在 main 文档。</div>`;
-                return;
-            }
-            const data = snapshot.data();
-            const nodes = data.nodes || [];
-            const links = data.links || [];
+        let currentUnsubscribe = null;
 
-            const start = Date.now();
-            const timer = setInterval(() => {
-                if (typeof window.initGraph === "function") {
-                    clearInterval(timer);
-                    window.initGraph(nodes, links);
-                } else if (Date.now() - start > 5000) {
-                    clearInterval(timer);
-                    console.error("渲染引擎加载超时");
-                }
-            }, 50);
-        });
-
-        /* ── [D-2] 鉴权状态监听：锁定与解锁「续写文脉」 ── */
+        /* ── [核心修复] 锁定时序：先验明身份，再开启云端数据监听 ── */
         onAuthStateChanged(auth, (user) => {
             const btn = document.getElementById("open-modal-btn");
             const authBtn = document.getElementById("auth-toggle-btn");
             const authLabel = document.getElementById("auth-status-label");
 
             if (user) {
+                // 1. 登入成功，解锁提案通道 UI
                 if (btn) {
                     btn.removeAttribute("disabled");
                     btn.style.opacity = "1";
@@ -68,7 +47,44 @@
                 if (authLabel) authLabel.textContent = user.email.split("@")[0];
                 if (authBtn) authBtn.textContent = "登出";
                 window._currentUser = user;
+
+                // 2. 掐断旧通道，严密建立新监听
+                if (currentUnsubscribe) currentUnsubscribe();
+                
+                currentUnsubscribe = onSnapshot(graphRef, (snapshot) => {
+                    if (!snapshot.exists()) {
+                        console.warn("Firestore: graph/main 文档不存在。");
+                        document.getElementById("graph-container").innerHTML = `<div style="padding:50px; color:#8B3A3A;">⚠️ 云端数据库尚未初始化，请确保后台存在对应文档。</div>`;
+                        return;
+                    }
+                    const data = snapshot.data();
+                    const nodes = data.nodes || [];
+                    const links = data.links || [];
+
+                    // 防御性半径过滤，确保旧拓扑数据不崩溃
+                    const safeNodes = nodes.map(n => ({
+                        ...n,
+                        radius: n.radius || (n.type === "人物" ? 22 : 16)
+                    }));
+
+                    // 克劳德轮询大阵：静候底层逻辑挂载完毕后无缝泼洒活水
+                    const start = Date.now();
+                    const timer = setInterval(() => {
+                        if (typeof window.initGraph === "function") {
+                            clearInterval(timer);
+                            window.initGraph(safeNodes, links);
+                        } else if (Date.now() - start > 5000) {
+                            clearInterval(timer);
+                            console.error("渲染引擎加载超时");
+                        }
+                    }, 50);
+                }, (error) => {
+                    console.error("安全防线拦截或连接失败:", error);
+                    document.getElementById("graph-container").innerHTML = `<div style="padding:50px; color:#8B3A3A;">⚠️ 云端读取受阻，请检查数据库权限规则。</div>`;
+                });
+
             } else {
+                // 1. 未登入状态，封锁 UI 通道
                 if (btn) {
                     btn.setAttribute("disabled", "true");
                     btn.style.opacity = "0.45";
@@ -78,6 +94,13 @@
                 if (authLabel) authLabel.textContent = "未登录";
                 if (authBtn) authBtn.textContent = "登入";
                 window._currentUser = null;
+                
+                // 2. 断开云端链路，退回枢纽待命状态
+                if (currentUnsubscribe) {
+                    currentUnsubscribe();
+                    currentUnsubscribe = null;
+                }
+                document.getElementById("graph-container").innerHTML = `<div style="padding:50px; color:#5C5347; font-size:16px; text-align:center; margin-top:30vh; letter-spacing:2px; font-family:'STSong', serif;">枢纽待命 · 请先在左下角登入账号以唤醒司南大阵</div>`;
             }
         });
 
@@ -152,14 +175,14 @@
         #top-panel p { margin: 5px 0; font-size: 14px; color: var(--ink-gray); letter-spacing: 2px; }
 
         #right-panel {
-            position: absolute; top: 0; right: -450px; 
+            position: absolute; top: 0; right: -450px;
             width: 400px; height: 100vh; background: rgba(253, 251, 247, 0.85);
             backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px);
             border-left: 1px solid rgba(212, 175, 55, 0.3); box-shadow: -10px 0 30px rgba(0,0,0,0.05);
-            transition: right 0.5s cubic-bezier(0.19, 1, 0.22, 1); 
+            transition: right 0.5s cubic-bezier(0.19, 1, 0.22, 1);
             padding: 50px 40px; box-sizing: border-box; z-index: 100; overflow-y: auto;
         }
-        #right-panel.active { right: 0; } 
+        #right-panel.active { right: 0; }
 
         .panel-close { position: absolute; top: 20px; right: 20px; font-size: 28px; color: var(--ink-gray); cursor: pointer; transition: color 0.3s; }
         .panel-close:hover { color: var(--amber-gold); }
@@ -390,10 +413,13 @@ const defs = svg.append("defs");
 const g = svg.append("g").attr("class", "zoom-layer");
 
 /* ============================================================
-   [D-1 全量重构] 彻底提取 D3 渲染主引擎，适配 Firebase 实时活水
+   [核心画布重置] 规避 HTML 容器状态切换导致的元素无限复写与失效
    ============================================================ */
 window.initGraph = function(nodes, links) {
-    // 1. 每次监听到数据更新，先无情斩断旧残影，防止元素无限重叠
+    const container = document.getElementById("graph-container");
+    container.innerHTML = ""; 
+    container.appendChild(svg.node()); 
+
     g.selectAll("*").remove();
     defs.selectAll("*").remove();
 
@@ -418,7 +444,7 @@ window.initGraph = function(nodes, links) {
     const node = g.append("g").selectAll("g").data(nodes).enter().append("g")
         .call(d3.drag().on("start", dragstarted).on("drag", dragged).on("end", dragended));
 
-    const circles = node.append("circle").attr("r", d => d.radius).attr("fill", (d, i) => `url(#grad-${i})`) 
+    const circles = node.append("circle").attr("r", d => d.radius).attr("fill", (d, i) => `url(#grad-${i})`)
         .attr("stroke", "rgba(255,255,255,0.6)").attr("stroke-width", 1.5)
         .style("filter", "drop-shadow(3px 5px 8px rgba(0,0,0,0.15))").style("cursor", "pointer");
 
@@ -434,7 +460,7 @@ window.initGraph = function(nodes, links) {
             d3.select(this).attr("stroke-width", function() { return parseFloat(d3.select(this).attr("stroke-width")) * 1.8; });
             tooltip.style("opacity", 1).text(d.relation);
         })
-        .on("mousemove", function(event) { tooltip.style("left", (event.pageX + 14) + "px").style("top",  (event.pageY - 28) + "px"); })
+        .on("mousemove", function(event) { tooltip.style("left", (event.pageX + 14) + "px").style("top", (event.pageY - 28) + "px"); })
         .on("mouseout", function(event, d) {
             d3.select(this).attr("stroke-width", () => ["师门","姻亲","亲属","身陷其中"].includes(d.relation) ? 2.5 : ["创作","归属"].includes(d.relation) ? 1.5 : 1.8);
             tooltip.style("opacity", 0);
@@ -571,9 +597,6 @@ function closeModal() {
     document.getElementById("form-feedback").textContent = "";
 }
 
-/* ============================================================
-   [D-4 绝杀修正] 彻底修复克劳德的输入框 ID 错位漏洞，精准入库
-   ============================================================ */
 document.getElementById("submit-btn").addEventListener("click", async function() {
     if (!window._currentUser) {
         alert("安全防线拦截：请先在左下角枢纽登入内部账号！");
@@ -585,7 +608,6 @@ document.getElementById("submit-btn").addEventListener("click", async function()
     const btn = document.getElementById("submit-btn");
     const feedback = document.getElementById("form-feedback");
 
-    // 动态必填项验证
     const config = fieldConfigs[opType];
     let hasEmpty = false;
     config.forEach(f => {
@@ -612,7 +634,6 @@ document.getElementById("submit-btn").addEventListener("click", async function()
             const type = document.getElementById("node-type").value;
             const subtype = document.getElementById("node-subtype").value.trim();
             const desc = document.getElementById("node-desc").value.trim();
-            
             const newNode = {
                 id, type, radius: type === "人物" ? 22 : 16,
                 ...(subtype && { subtype }),
@@ -625,7 +646,6 @@ document.getElementById("submit-btn").addEventListener("click", async function()
             const target = document.getElementById("link-target").value.trim();
             const relation = document.getElementById("link-relation").value;
             const note = document.getElementById("link-note").value.trim();
-
             const newLink = {
                 source, target, relation,
                 ...(note && { note }),
@@ -636,7 +656,6 @@ document.getElementById("submit-btn").addEventListener("click", async function()
         } else if (opType === "edit-desc") {
             const target = document.getElementById("edit-target").value.trim();
             const newDesc = document.getElementById("edit-new").value.trim();
-
             const snap = await getDoc(graphRef);
             if (snap.exists()) {
                 const nodes = snap.data().nodes || [];
