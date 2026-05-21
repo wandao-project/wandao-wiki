@@ -2,11 +2,14 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <title>文道维基 - 司南图谱</title>
+    <title>文道维基 - 司南图谱 v3.6.0 实时云端并网版</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-        import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+        import { getFirestore, doc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+        import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
+        // 鉴权守卫
         const auth = getAuth(initializeApp({
             apiKey: "AIzaSyDBexjyMOKoCi1iEmSDE-YlbcP-ilrq1Nc",
             authDomain: "wandao-wiki.firebaseapp.com",
@@ -16,15 +19,36 @@
             appId: "1:1091649219063:web:c08c402dafabd5989ae6f2"
         }));
 
-        // 核心守卫：检测凭证，无效则弹回登录页
         onAuthStateChanged(auth, (user) => {
             if (!user) {
                 window.location.replace("index.html");
             }
         });
+
+        // 数据库监听
+        const db = getFirestore();
+        const graphRef = doc(db, "graph", "main");
+        onSnapshot(graphRef, (snapshot) => {
+            if (snapshot.exists()) {
+                const data = snapshot.data();
+                // 调用您的绘图引擎
+                if (typeof renderGraph === "function") renderGraph(data.nodes, data.links);
+            }
+        });
+        
+        window.handleLogout = () => signOut(auth).then(() => window.location.replace("index.html"));
     </script>
 </head>
 <body>
-    <div id="graph-container">主谱已就绪，严阵以待...</div>
+    <div id="graph-container"></div>
+    <button onclick="handleLogout()" style="position:fixed; top:20px; right:20px; z-index:999;">退出</button>
+
+    <script>
+        // 【在此处粘贴您原来所有的绘图逻辑，并将函数名改为 renderGraph】
+        window.renderGraph = function(nodes, links) {
+            // ... 您原来的绘图代码 ...
+            console.log("云端图谱正在实时绘制...");
+        };
+    </script>
 </body>
 </html>
