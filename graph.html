@@ -7,10 +7,10 @@
     
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-        import { getFirestore, doc, getDoc, onSnapshot, updateDoc, arrayUnion } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+        // ✅ 新增了 setDoc，用于一键建库
+        import { getFirestore, doc, getDoc, setDoc, onSnapshot, updateDoc, arrayUnion } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
         import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
-        // 云端凭证
         const firebaseConfig = {
             apiKey: "AIzaSyDBexjyMOKoCi1iEmSDE-YlbcP-ilrq1Nc",
             authDomain: "wandao-wiki.firebaseapp.com",
@@ -26,11 +26,74 @@
         const auth = getAuth(app);
         const graphRef = doc(db, "graph", "main");
 
-        window._fb = { db, auth, graphRef, updateDoc, arrayUnion, getDoc };
+        window._fb = { db, auth, graphRef, updateDoc, arrayUnion, getDoc, setDoc };
 
         let currentUnsubscribe = null;
 
-        /* ── 状态隔离防线：通过控制遮罩层显示，绝不破坏画布 DOM ── */
+        /* ── 待注入的李商隐全量数据 ── */
+        const initData = {
+          "nodes": [
+            { "id": "李商隐", "type": "人物", "radius": 35, "desc": "字义山，号玉溪生、樊南生。晚唐诗坛巨擘，与杜牧合称‘小李杜’。其诗构思新奇，词采隽丽，尤以无题诗及咏史诗著称。身陷牛李党争，一生轗轲，其作多寓身世之感，语多含蓄，旨意深微。历代注家如朱鹤龄、冯浩、张采田等聚讼纷纭，为近代数字文献学关联网络之核心本体。" },
+            { "id": "令狐楚", "type": "人物", "radius": 20, "desc": "唐代重臣，骈体文大师。独具慧眼，拔擢义山于微时，授以骈俪之学，并资助其生计。政治上属‘牛党’核心。义山视之如父，其殁后，义山亦深陷于两党政治与个人情感之双重羁绊。" },
+            { "id": "王茂元", "type": "人物", "radius": 20, "desc": "唐代将领，时任忠武军节度使。赏识李商隐之才，以女妻之。政治上与‘李党’领袖李德裕交好。此举导致李商隐被‘牛党’视为背恩负德之辈，成为其一生政治悲剧与‘牛李絷维’之导火索。" },
+            { "id": "白居易", "type": "人物", "radius": 20, "desc": "字乐天，中唐文学巨匠。晚年极赏李商隐之新体诗才，曾有‘我死后，得为尔儿足矣’之语。此一考据见于《唐才子传》，体现了中晚唐诗风之嬗变与文学道统之非线性传承。" },
+            { "id": "柳仲郢", "type": "人物", "radius": 20, "desc": "唐代严正官员，梓州刺史、东川节度使。在李商隐陷于党争、孤苦无依之际，辟其为书记，悉心庇护。义山标志性文集《樊南乙集》即编纂于随其幕府期间，是考证义山晚年心态之孤本文献。" },
+            { "id": "锦瑟", "type": "作品", "radius": 15, "desc": "义山诗集之冠冕，‘旨意深微’之典型。历代考据流派聚讼不已：一曰‘悼亡说’（朱鹤龄、冯浩主之），谓其追忆亡妻王氏；二曰‘自伤身世说’（纪晓岚、张采田主之），谓其总括一生政治悲剧与才人沦落。个中‘沧海月明’‘蓝田日暖’等意象多重互涉，极具图谱下钻下位研究价值。" },
+            { "id": "夜雨寄北", "type": "作品", "radius": 15, "desc": "关于此诗‘寄北’之对象，考据学界存在长期争议。传统‘寄内说’认为系寄予亡妻王氏；然据近代学者钱仲联等考证，此诗作于大中五年秋巴蜀雨季，其时王氏已殁，故‘寄北友说’（如寄令狐绹或幕府同僚）亦成显学。此诗系空间拓扑与情感时间线错位的典型文本。" },
+            { "id": "无题", "type": "作品", "subtype": "无题", "radius": 15, "desc": "‘身无彩凤双飞翼，心有灵犀一点通’所在篇章。学术界对其主题存‘政治寄托说’（认为系向牛党修好之政治隐喻）与‘纯粹艳情说’之百年论争。图谱将其定义为多义性复杂节点。" },
+            { "id": "隋宫", "type": "作品", "subtype": "咏史", "radius": 15, "desc": "晚唐讽喻咏史诗之绝唱。通过‘玉玺不缘归日角，锦帆应是到天涯’之强烈对比，讽刺隋炀帝奢侈亡国。表面借古讽今，文献学深层结构实则暗寓大中朝宣宗沉溺佛道、晚唐政局江河日下之现实悲凉。" },
+            { "id": "安定城楼", "type": "作品", "subtype": "咏史", "radius": 15, "desc": "义山早岁登临之作。通过‘永忆江湖归白发，欲回天地入舟’之语，展现其青年时期虽身处牛李党争前夜，仍怀抱匡扶社稷之宏愿与道家退隐之情结，是研究其思想演变之奠基文献。" },
+            { "id": "咏史诗", "type": "类型", "radius": 18, "desc": "义山诗学之重要范式。突破传统史论之机械说教，开创‘以史寄怀、反思现实’之新风。往往在宏大叙事中嵌入微观意象，如《隋宫》、《马嵬》，形成‘史实-诗艺-现实’之三维知识网络。" },
+            { "id": "无题诗", "type": "类型", "radius": 18, "desc": "义山独创之诗歌美学范式。以‘无题’为题，寄托幽微不居之情思。其文本特征为词采迷离、意象隐秘（如蚕、烛、月、镜），为后世留下了巨大的释意空间，是知识图谱实体关联度最高之类型。" },
+            { "id": "牛李党争", "type": "事件", "radius": 18, "desc": "贯穿中晚唐近四十年的朋党之争。以牛僧孺、令狐楚等为首的‘牛党’（多进士出身）与以李德裕、王茂元等为首的‘李党’（多门荫出身）互相对立。李商隐‘牛党其骨，李党其亲’，终生絷维于两党夹缝中，成为党争最惨烈的文化祭品。" },
+            { "id": "甘露之变", "type": "事件", "radius": 18, "desc": "唐大和九年（835年），文宗企图借甘露之兆诛灭宦官，事败，反遭宦官肆意血洗朝臣。此变摧毁了朝廷清流力量，使晚唐政权彻底落入宦官之手。李商隐目睹此变，作《有感二首》等，对朝局表达了深沉之悲恸与反思。" },
+            { "id": "温庭筠", "type": "人物", "radius": 20, "desc": "字飞卿，晚唐词坛宗主，'花间派'之鼻祖。与义山并称'温李'，同为骈丽诗风之代表。两人过从甚密，然温庭筠恃才傲物，仕途更为蹭蹬，其词风之秾丽与义山诗风之隐晦相互映照，构成晚唐文学美学之双峰。" },
+            { "id": "段成式", "type": "人物", "radius": 20, "desc": "字柯古，博学奇才，《酉阳杂俎》作者。与李商隐、温庭筠交游密切，三人皆擅骈俪之文，时称'三十六体'。段成式之笔记小说与义山诗歌共同构成晚唐文化奇诡瑰丽之美学侧面。" },
+            { "id": "韩偓", "type": "人物", "radius": 20, "desc": "字致尧，晚唐诗人。为李商隐之甥，深受义山诗风熏染，其《香奁集》承续温微香艳绮丽之脉络。在文学道统的传承图谱中，韩偓是义山诗风向五代词风过渡的重要节点人物。" },
+            { "id": "王氏", "type": "人物", "radius": 20, "desc": "王茂元之女，李商隐之妻。大中五年（851年）先于义山而殁。其早逝对义山创作影响深远，《锦瑟》'悼亡说'、《房中曲》之创作皆与此相关。王氏之存在是连接义山政治困境与情感世界的核心人物节点。" },
+            { "id": "房中曲", "type": "作品", "radius": 15, "desc": "义山悼念亡妻王氏之作，情感至为沉痛。'归来已不见，锦瑟长于人'之句，与《锦瑟》形成互文关系，是'悼亡说'派考据学者的重要文本依据。在图谱中，此诗是连接王氏节点与锦瑟节点的关键证据链。" },
+            { "id": "寄令狐郎中", "type": "作品", "radius": 15, "desc": "义山向令狐绹（令狐楚之子）修好示好之作。'嵩云秦树久离居，双鲤迢迢一纸书'，字面为叙旧，深层则是对牛党权贵的政治试探与委屈求全。此诗是理解义山政治处境与人际关系网络的关键文献。" },
+            { "id": "东还", "type": "作品", "radius": 15, "desc": "义山离蜀东归途中所作。'野旷天低树，江清月近人'之境，折射出其晚年羁旅漂泊、归途茫然之心境。在地理时间线系统中，此诗是标定义山巴蜀幕府生涯终点、东归长安这一地理节点的重要文献坐标。" },
+            { "id": "北齐二首", "type": "作品", "subtype": "咏史", "radius": 15, "desc": "义山咏史诗之典范。借北齐后主高纬与冯淑妃之荒淫事，讽喻晚唐统治者之昏聩。'小怜玉体横陈夜，已报周师入晋阳'之句，以极度压缩的时空对比，达到震撼人心的讽喻效果，是义山咏史诗'以艳写史'手法之极致。" }
+          ],
+          "links": [
+            { "source": "李商隐", "target": "令狐楚", "relation": "师门" },
+            { "source": "李商隐", "target": "王茂元", "relation": "姻亲" },
+            { "source": "李商隐", "target": "白居易", "relation": "文学影响" },
+            { "source": "李商隐", "target": "柳仲郢", "relation": "幕僚" },
+            { "source": "李商隐", "target": "温庭筠", "relation": "文学交游" },
+            { "source": "李商隐", "target": "段成式", "relation": "文学交游" },
+            { "source": "李商隐", "target": "韩偓", "relation": "亲属" },
+            { "source": "李商隐", "target": "王氏", "relation": "姻亲" },
+            { "source": "李商隐", "target": "牛李党争", "relation": "身陷其中" },
+            { "source": "令狐楚", "target": "牛李党争", "relation": "牛党核心" },
+            { "source": "王茂元", "target": "牛李党争", "relation": "李党相关" },
+            { "source": "李商隐", "target": "锦瑟", "relation": "创作" },
+            { "source": "李商隐", "target": "夜雨寄北", "relation": "创作" },
+            { "source": "李商隐", "target": "无题", "relation": "创作" },
+            { "source": "李商隐", "target": "隋宫", "relation": "创作" },
+            { "source": "李商隐", "target": "安定城楼", "relation": "创作" },
+            { "source": "李商隐", "target": "房中曲", "relation": "创作" },
+            { "source": "李商隐", "target": "寄令狐郎中", "relation": "创作" },
+            { "source": "李商隐", "target": "东还", "relation": "创作" },
+            { "source": "李商隐", "target": "北齐二首", "relation": "创作" },
+            { "source": "无题", "target": "无题诗", "relation": "归属" },
+            { "source": "锦瑟", "target": "无题诗", "relation": "归属" },
+            { "source": "隋宫", "target": "咏史诗", "relation": "归属" },
+            { "source": "安定城楼", "target": "咏史诗", "relation": "归属" },
+            { "source": "北齐二首", "target": "咏史诗", "relation": "归属" },
+            { "source": "李商隐", "target": "甘露之变", "relation": "亲历" },
+            { "source": "隋宫", "target": "甘露之变", "relation": "影射" },
+            { "source": "王氏", "target": "锦瑟", "relation": "考据关联" },
+            { "source": "王氏", "target": "房中曲", "relation": "考据关联" },
+            { "source": "韩偓", "target": "温庭筠", "relation": "文学影响" },
+            { "source": "温庭筠", "target": "段成式", "relation": "文学交游" },
+            { "source": "寄令狐郎中", "target": "令狐楚", "relation": "考据关联" },
+            { "source": "寄令狐郎中", "target": "牛李党争", "relation": "政治背景" }
+          ]
+        };
+
+        /* ── 云端鉴权与实时监听 ── */
         onAuthStateChanged(auth, (user) => {
             const btn = document.getElementById("open-modal-btn");
             const authBtn = document.getElementById("auth-toggle-btn");
@@ -48,38 +111,66 @@
                 if (authBtn) authBtn.textContent = "登出";
                 window._currentUser = user;
 
-                // 唤醒大阵：隐藏遮罩层
                 if (overlay) overlay.classList.add("hidden");
 
                 if (currentUnsubscribe) currentUnsubscribe();
                 
                 currentUnsubscribe = onSnapshot(graphRef, (snapshot) => {
-                    if (!snapshot.exists()) {
-                        console.warn("Firestore: graph/main 文档不存在。");
+                    const data = snapshot.data();
+                    
+                    // ✅ 核心修复：如果云端为空，在页面中央召唤“建库按钮”
+                    if (!snapshot.exists() || !data || !data.nodes || data.nodes.length === 0) {
+                        if (typeof window.clearGraph === "function") window.clearGraph();
+                        
+                        document.getElementById("graph-container").innerHTML = `
+                            <div style="position:absolute; top:45%; left:50%; transform:translate(-50%, -50%); text-align:center; background:rgba(253,251,247,0.95); padding:40px 50px; border:1px solid rgba(212, 175, 55, 0.4); border-radius:12px; box-shadow:0 15px 35px rgba(0,0,0,0.08); z-index:100;">
+                                <h2 style="color:#2C2C2C; font-weight:normal; letter-spacing:4px; margin-bottom:12px; font-size:24px;">云端大阵尚未初始化</h2>
+                                <p style="color:#888; letter-spacing:2px; margin-bottom:30px; font-size:14px; line-height:1.8;">检测到您的 Firebase 数据库目前为空。<br>请点击下方按钮，将 22 个【李商隐】考据节点永久注入云端。</p>
+                                <button id="init-db-btn" style="background:linear-gradient(135deg, #D4AF37, #B8941F); color:#fff; border:none; padding:12px 28px; border-radius:30px; font-size:14px; letter-spacing:3px; cursor:pointer; box-shadow:0 6px 20px rgba(212,175,55,0.3); font-family:inherit; transition:opacity 0.3s;">一键注入云端</button>
+                            </div>
+                        `;
+                        
+                        // 绑定建库事件
+                        setTimeout(() => {
+                            const initBtn = document.getElementById("init-db-btn");
+                            if (initBtn) {
+                                initBtn.onclick = async () => {
+                                    if (!window._currentUser) {
+                                        alert("请先登入账号！"); return;
+                                    }
+                                    initBtn.textContent = "正在注入大阵...";
+                                    try {
+                                        await window._fb.setDoc(window._fb.graphRef, initData);
+                                        // 注入成功后，onSnapshot 会自动监听到数据变化并重新渲染图谱，无需手动刷新！
+                                    } catch(e) {
+                                        alert("注入失败：" + e.message + " (请检查 Firebase 写入权限)");
+                                        initBtn.textContent = "一键注入云端";
+                                    }
+                                };
+                            }
+                        }, 100);
                         return;
                     }
-                    const data = snapshot.data();
-                    const nodes = data.nodes || [];
-                    const links = data.links || [];
 
-                    const safeNodes = nodes.map(n => ({
+                    // 如果云端有数据，正常深拷贝并绘制
+                    const safeNodes = JSON.parse(JSON.stringify(data.nodes)).map(n => ({
                         ...n,
                         radius: n.radius || (n.type === "人物" ? 22 : 16)
                     }));
+                    const safeLinks = JSON.parse(JSON.stringify(data.links));
 
-                    // 轮询大阵：静候底层逻辑挂载完毕
                     const start = Date.now();
                     const timer = setInterval(() => {
                         if (typeof window.initGraph === "function") {
                             clearInterval(timer);
-                            window.initGraph(safeNodes, links);
+                            window.initGraph(safeNodes, safeLinks);
                         } else if (Date.now() - start > 5000) {
                             clearInterval(timer);
                             console.error("渲染引擎加载超时");
                         }
                     }, 50);
                 }, (error) => {
-                    console.error("云端链路受阻:", error);
+                    console.error("云端监听受阻:", error);
                 });
 
             } else {
@@ -87,28 +178,24 @@
                     btn.setAttribute("disabled", "true");
                     btn.style.opacity = "0.45";
                     btn.style.cursor = "not-allowed";
-                    btn.title = "请先在左下角枢纽登入内部账号以解锁编辑权限";
                 }
                 if (authLabel) authLabel.textContent = "未登录";
                 if (authBtn) authBtn.textContent = "登入";
                 window._currentUser = null;
                 
-                // 激活防线：降下遮罩层
                 if (overlay) overlay.classList.remove("hidden");
 
                 if (currentUnsubscribe) {
                     currentUnsubscribe();
                     currentUnsubscribe = null;
                 }
-                
-                // 静默清空画布残留
                 if (typeof window.clearGraph === "function") {
                     window.clearGraph();
                 }
             }
         });
 
-        /* ── 枢纽登入核心调度 ── */
+        /* ── 登入/登出 UI ── */
         window.handleAuthToggle = function() {
             if (window._currentUser) {
                 signOut(auth).then(() => {
@@ -130,14 +217,7 @@
                 document.getElementById("auth-email").value = "";
                 document.getElementById("auth-password").value = "";
             } catch (e) {
-                const msgMap = {
-                    "auth/invalid-email": "邮箱格式有误",
-                    "auth/user-not-found": "账号不存在",
-                    "auth/wrong-password": "密码错误",
-                    "auth/invalid-credential": "账号或密码错误",
-                    "auth/too-many-requests": "尝试次数过多，请稍后再试"
-                };
-                errEl.textContent = msgMap[e.code] || "登录失败，请重试";
+                errEl.textContent = "账号或密码错误，请重试";
             }
         };
 
@@ -163,10 +243,8 @@
             overflow: hidden;
         }
 
-        /* D3 容器脱离文档流但保持静默层级 */
         #graph-container { width: 100vw; height: 100vh; position: absolute; inset: 0; z-index: 10; }
 
-        /* 独立水墨遮罩层 */
         #auth-overlay {
             position: fixed; inset: 0; background-color: var(--silk-white); z-index: 500;
             display: flex; align-items: center; justify-content: center;
@@ -212,14 +290,19 @@
 
         #legend { position: absolute; bottom: 30px; left: 30px; pointer-events: none; z-index: 50; }
         #legend-title { font-size: 11px; color: var(--ink-gray); letter-spacing: 2px; margin-bottom: 10px; opacity: 0.7; }
-        .legend-item { display: flex; align-items: center; margin-bottom: 6px; }
+        .desktop-legend-item { display: flex; align-items: center; margin-bottom: 6px; }
         .legend-line { width: 26px; height: 2px; margin-right: 9px; flex-shrink: 0; }
         .legend-label { font-size: 11px; color: var(--ink-gray); letter-spacing: 1px; }
 
-        /* ✅ 终极修复：按钮采用 fixed 定位，破除所有层叠上下文遮挡 */
+        #legend-drawer {
+            display: none; flex-direction: column; background: rgba(253, 251, 247, 0.95); 
+            border: 1px solid rgba(212, 175, 55, 0.3); border-radius: 8px; padding: 12px 16px; margin-bottom: 8px; backdrop-filter: blur(10px);
+        }
+        #legend-drawer.open { display: flex; }
+        #legend-drawer .legend-item { display: flex; align-items: center; margin-bottom: 6px; }
+
         #open-modal-btn {
-            position: fixed; 
-            bottom: 30px; right: 30px; z-index: 600; pointer-events: auto;
+            position: fixed; bottom: 30px; right: 30px; z-index: 600; pointer-events: auto;
             background: rgba(253, 251, 247, 0.85); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
             border: 1px solid rgba(212, 175, 55, 0.5); color: var(--amber-gold);
             font-family: "STSong", "SimSun", "Microsoft YaHei", serif; font-size: 14px; letter-spacing: 3px;
@@ -307,11 +390,8 @@
             #right-panel::before { content: ''; display: block; width: 36px; height: 4px; background: rgba(212, 175, 55, 0.4); border-radius: 2px; margin: -18px auto 20px; }
             #panel-title { font-size: 26px; }
             #legend { bottom: 16px; left: 16px; pointer-events: auto; }
-            #legend-title, .legend-item { display: none; }
+            #legend-title, .desktop-legend-item { display: none; }
             #legend-toggle { display: flex !important; }
-            #legend-drawer { display: none; flex-direction: column; background: rgba(253, 251, 247, 0.95); border: 1px solid rgba(212, 175, 55, 0.3); border-radius: 8px; padding: 12px 16px; margin-bottom: 8px; backdrop-filter: blur(10px); }
-            #legend-drawer.open { display: flex; }
-            #legend-drawer .legend-item { display: flex; }
             #open-modal-btn { bottom: 80px; right: 16px; font-size: 13px; padding: 9px 18px; letter-spacing: 2px; }
             #modal-box { width: 100%; max-width: 100%; max-height: 90vh; border-radius: 16px 16px 0 0; padding: 36px 24px 32px; margin: auto auto 0; }
             #modal-overlay { align-items: flex-end; }
@@ -343,7 +423,7 @@
 </div>
 
 <div id="legend">
-    <div id="legend-toggle" style="display:none; align-items:center; cursor:pointer; margin-bottom:6px;" onclick="document.getElementById('legend-drawer').classList.toggle('open')">
+    <div id="legend-toggle" onclick="document.getElementById('legend-drawer').classList.toggle('open')">
         <div style="width:18px;height:2px;background:var(--amber-gold);margin-right:6px;"></div>
         <span style="font-size:11px;color:var(--ink-gray);letter-spacing:2px;">图例</span>
     </div>
@@ -360,16 +440,16 @@
         <div class="legend-item"><div class="legend-line" style="background:none;border-top:2px dashed #A05030;"></div><span class="legend-label">影射</span></div>
     </div>
     <div id="legend-title">关系图例</div>
-    <div class="legend-item"><div class="legend-line" style="background:#8B6914;height:2.5px;"></div><span class="legend-label">师门</span></div>
-    <div class="legend-item"><div class="legend-line" style="background:#C17A6F;height:2.5px;"></div><span class="legend-label">姻亲·亲属</span></div>
-    <div class="legend-item"><div class="legend-line" style="background:#4A7C8E;"></div><span class="legend-label">文学影响</span></div>
-    <div class="legend-item"><div class="legend-line" style="background:#6B9FAF;"></div><span class="legend-label">文学交游</span></div>
-    <div class="legend-item"><div class="legend-line" style="background:#7A6E5A;"></div><span class="legend-label">幕僚</span></div>
-    <div class="legend-item"><div class="legend-line" style="background:#B8860B;"></div><span class="legend-label">创作</span></div>
-    <div class="legend-item"><div class="legend-line" style="background:#A0956F;"></div><span class="legend-label">归属</span></div>
-    <div class="legend-item"><div class="legend-line" style="background:#8B3A3A;height:2.5px;"></div><span class="legend-label">政治关系</span></div>
-    <div class="legend-item"><div class="legend-line" style="background:none;border-top:2px dashed #6B7A5A;"></div><span class="legend-label">考据关联</span></div>
-    <div class="legend-item"><div class="legend-line" style="background:none;border-top:2px dashed #A05030;"></div><span class="legend-label">影射</span></div>
+    <div class="desktop-legend-item"><div class="legend-line" style="background:#8B6914;height:2.5px;"></div><span class="legend-label">师门</span></div>
+    <div class="desktop-legend-item"><div class="legend-line" style="background:#C17A6F;height:2.5px;"></div><span class="legend-label">姻亲·亲属</span></div>
+    <div class="desktop-legend-item"><div class="legend-line" style="background:#4A7C8E;"></div><span class="legend-label">文学影响</span></div>
+    <div class="desktop-legend-item"><div class="legend-line" style="background:#6B9FAF;"></div><span class="legend-label">文学交游</span></div>
+    <div class="desktop-legend-item"><div class="legend-line" style="background:#7A6E5A;"></div><span class="legend-label">幕僚</span></div>
+    <div class="desktop-legend-item"><div class="legend-line" style="background:#B8860B;"></div><span class="legend-label">创作</span></div>
+    <div class="desktop-legend-item"><div class="legend-line" style="background:#A0956F;"></div><span class="legend-label">归属</span></div>
+    <div class="desktop-legend-item"><div class="legend-line" style="background:#8B3A3A;height:2.5px;"></div><span class="legend-label">政治关系</span></div>
+    <div class="desktop-legend-item"><div class="legend-line" style="background:none;border-top:2px dashed #6B7A5A;"></div><span class="legend-label">考据关联</span></div>
+    <div class="desktop-legend-item"><div class="legend-line" style="background:none;border-top:2px dashed #A05030;"></div><span class="legend-label">影射</span></div>
 </div>
 
 <div id="graph-container"></div>
@@ -425,28 +505,31 @@ let closePanel = () => {};
 const nodeColors = { "人物": "#5C4033", "作品": "#8B5A2B", "类型": "#B8860B", "事件": "#A0522D" };
 const linkColors = { "师门": "#8B6914", "姻亲": "#C17A6F", "亲属": "#C17A6F", "文学影响": "#4A7C8E", "文学交游": "#6B9FAF", "幕僚": "#7A6E5A", "创作": "#B8860B", "归属": "#A0956F", "身陷其中": "#8B3A3A", "牛党核心": "#8B3A3A", "李党相关": "#8B3A3A", "亲历": "#8B3A3A", "影射": "#A05030", "考据关联": "#6B7A5A", "政治背景": "#8B3A3A" };
 
-const width = window.innerWidth;
-const height = window.innerHeight;
-const svg = d3.select("#graph-container").append("svg").attr("width", width).attr("height", height);
-
-const zoom = d3.zoom().scaleExtent([0.3, 3]).on("zoom", (event) => { g.attr("transform", event.transform); });
-svg.call(zoom);
-
-const defs = svg.append("defs");
-const g = svg.append("g").attr("class", "zoom-layer");
-
 window.clearGraph = function() {
     if (window._simulation) window._simulation.stop();
-    g.selectAll("*").remove();
-    defs.selectAll("*").remove();
+    const container = d3.select("#graph-container");
+    container.selectAll("*").remove();
 };
 
-window.initGraph = function(nodes, links) {
-    // 斩断旧残影，防止多重线程碰撞
+/* ── [克劳德级修复] 将画笔和画布全部内聚，防止时序错位 ── */
+window.initGraph = function(nodesData, linksData) {
     if (window._simulation) window._simulation.stop();
 
-    g.selectAll("*").remove();
-    defs.selectAll("*").remove();
+    const container = d3.select("#graph-container");
+    container.selectAll("*").remove();
+
+    const width = window.innerWidth;
+    const height = window.innerHeight;
+    const svg = container.append("svg").attr("width", width).attr("height", height);
+    const defs = svg.append("defs");
+    const g = svg.append("g").attr("class", "zoom-layer");
+
+    const zoom = d3.zoom().scaleExtent([0.3, 3]).on("zoom", (event) => { g.attr("transform", event.transform); });
+    svg.call(zoom);
+
+    // 深拷贝数据，防止 D3 引擎污染
+    const nodes = JSON.parse(JSON.stringify(nodesData));
+    const links = JSON.parse(JSON.stringify(linksData));
 
     nodes.forEach(n => n.color = nodeColors[n.type] || "#666");
 
