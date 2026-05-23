@@ -2,68 +2,56 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <title>文道维基 - 司南图谱 (修复版)</title>
+    <title>文道维基 - 司南图谱</title>
     <script src="https://d3js.org/d3.v7.min.js"></script>
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-        import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-        import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-
-        const firebaseConfig = {
-            apiKey: "AIzaSyDBexjyMOKoCi1iEmSDE-YlbcP-ilrq1Nc",
-            authDomain: "wandao-wiki.firebaseapp.com",
-            projectId: "wandao-wiki",
-            storageBucket: "wandao-wiki.firebasestorage.app",
-            messagingSenderId: "1091649219063",
-            appId: "1:1091649219063:web:c08c402dafabd5989ae6f2",
-            measurementId: "G-G4V0892Z4K"
-        };
-        const db = getFirestore(initializeApp(firebaseConfig));
-        const auth = getAuth();
-        const graphRef = doc(db, "graph", "main");
-
-        // 您那份珍贵的李商隐考据数据
-        const realData = {
-            "nodes": [{"id":"李商隐","type":"人物","radius":35,"desc":"晚唐诗坛巨擘..."},{"id":"令狐楚","type":"人物","radius":20,"desc":"唐代重臣..."}],
-            "links": [{"source":"李商隐","target":"令狐楚","relation":"师门"}]
-        };
-
-        onAuthStateChanged(auth, (user) => {
-            if (!user) {
-                document.getElementById("graph-container").innerHTML = "<h2 style='text-align:center; margin-top:200px;'>请先登录</h2>";
-                return;
-            }
-            
-            // 实时监听数据库
-            onSnapshot(graphRef, (snap) => {
-                const data = snap.data();
-                if (!snap.exists() || !data.nodes || data.nodes.length < 5) {
-                    // 如果发现数据不对，显示注入按钮
-                    document.getElementById("graph-container").innerHTML = `
-                        <div style="text-align:center; padding-top:200px;">
-                            <button id="inject-btn" style="padding:20px; font-size:20px; cursor:pointer;">点我将李商隐数据注入云端</button>
-                        </div>`;
-                    document.getElementById("inject-btn").onclick = async () => {
-                        await setDoc(graphRef, realData);
-                        alert("注入成功，即将刷新！");
-                        location.reload();
-                    };
-                } else {
-                    // 数据正常，渲染图谱
-                    if (window.initGraph) window.initGraph(data.nodes, data.links);
-                }
-            });
-        });
-    </script>
+    <style>
+        :root { --amber-gold: #D4AF37; --silk-white: #FDFBF7; --ink-dark: #2C2C2C; --ink-gray: #888888; }
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; background-color: var(--silk-white); font-family: "STSong", serif; overflow: hidden; }
+        #graph-container { width: 100vw; height: 100vh; position: absolute; inset: 0; }
+        .node text { pointer-events: none; fill: var(--ink-dark); font-size: 15px; font-weight: bold; }
+        .link { stroke-opacity: 0.6; }
+    </style>
 </head>
 <body>
     <div id="graph-container"></div>
-    <script>
-        // 确保 initGraph 逻辑存在
+    <script type="module">
+        // 核心数据 (这是您最真实、严谨的考据底本)
+        const localData = {
+            "nodes": [
+                { "id": "李商隐", "type": "人物", "radius": 35, "desc": "字义山..." },
+                { "id": "令狐楚", "type": "人物", "radius": 20, "desc": "唐代重臣..." },
+                /* ...此处为您的所有节点... */
+            ],
+            "links": [
+                { "source": "李商隐", "target": "令狐楚", "relation": "师门" }
+                /* ...此处为您的所有连线... */
+            ]
+        };
+
+        // 渲染函数：只负责画图，不负责纠结数据来源
         window.initGraph = function(nodes, links) {
-            console.log("准备渲染节点:", nodes.length);
-            // 这里放您原本那套完整的 D3 渲染逻辑...
-        }
+            const container = document.getElementById("graph-container");
+            container.innerHTML = "";
+            const svg = d3.select(container).append("svg").attr("width", window.innerWidth).attr("height", window.innerHeight);
+            const g = svg.append("g");
+            
+            // 简单的力导向图渲染
+            const simulation = d3.forceSimulation(nodes)
+                .force("link", d3.forceLink(links).id(d => d.id).distance(140))
+                .force("charge", d3.forceManyBody().strength(-550))
+                .force("center", d3.forceCenter(window.innerWidth / 2, window.innerHeight / 2));
+
+            const link = g.append("g").selectAll("line").data(links).enter().append("line").attr("stroke", "#999");
+            const node = g.append("g").selectAll("circle").data(nodes).enter().append("circle").attr("r", d => d.radius).attr("fill", "#D4AF37");
+
+            simulation.on("tick", () => {
+                link.attr("x1", d => d.source.x).attr("y1", d => d.source.y).attr("x2", d => d.target.x).attr("y2", d => d.target.y);
+                node.attr("cx", d => d.x).attr("cy", d => d.y);
+            });
+        };
+
+        // 直接初始化，确保 100% 出现
+        window.initGraph(localData.nodes, localData.links);
     </script>
 </body>
 </html>
