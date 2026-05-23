@@ -10,7 +10,7 @@
         import { getFirestore, doc, getDoc, onSnapshot, updateDoc, arrayUnion } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
         import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
-        // 云端凭证大印
+        // 云端凭证
         const firebaseConfig = {
             apiKey: "AIzaSyDBexjyMOKoCi1iEmSDE-YlbcP-ilrq1Nc",
             authDomain: "wandao-wiki.firebaseapp.com",
@@ -30,14 +30,14 @@
 
         let currentUnsubscribe = null;
 
-        /* ── [核心修复] 锁定时序：先验明身份，再开启云端数据监听 ── */
+        /* ── 状态隔离防线：通过控制遮罩层显示，绝不破坏画布 DOM ── */
         onAuthStateChanged(auth, (user) => {
             const btn = document.getElementById("open-modal-btn");
             const authBtn = document.getElementById("auth-toggle-btn");
             const authLabel = document.getElementById("auth-status-label");
+            const overlay = document.getElementById("auth-overlay");
 
             if (user) {
-                // 1. 登入成功，解锁提案通道 UI
                 if (btn) {
                     btn.removeAttribute("disabled");
                     btn.style.opacity = "1";
@@ -48,26 +48,26 @@
                 if (authBtn) authBtn.textContent = "登出";
                 window._currentUser = user;
 
-                // 2. 掐断旧通道，严密建立新监听
+                // 唤醒大阵：隐藏遮罩层
+                if (overlay) overlay.classList.add("hidden");
+
                 if (currentUnsubscribe) currentUnsubscribe();
                 
                 currentUnsubscribe = onSnapshot(graphRef, (snapshot) => {
                     if (!snapshot.exists()) {
                         console.warn("Firestore: graph/main 文档不存在。");
-                        document.getElementById("graph-container").innerHTML = `<div style="padding:50px; color:#8B3A3A;">⚠️ 云端数据库尚未初始化，请确保后台存在对应文档。</div>`;
                         return;
                     }
                     const data = snapshot.data();
                     const nodes = data.nodes || [];
                     const links = data.links || [];
 
-                    // 防御性半径过滤，确保旧拓扑数据不崩溃
                     const safeNodes = nodes.map(n => ({
                         ...n,
                         radius: n.radius || (n.type === "人物" ? 22 : 16)
                     }));
 
-                    // 克劳德轮询大阵：静候底层逻辑挂载完毕后无缝泼洒活水
+                    // 轮询大阵：静候底层逻辑挂载完毕
                     const start = Date.now();
                     const timer = setInterval(() => {
                         if (typeof window.initGraph === "function") {
@@ -79,12 +79,10 @@
                         }
                     }, 50);
                 }, (error) => {
-                    console.error("安全防线拦截或连接失败:", error);
-                    document.getElementById("graph-container").innerHTML = `<div style="padding:50px; color:#8B3A3A;">⚠️ 云端读取受阻，请检查数据库权限规则。</div>`;
+                    console.error("云端链路受阻:", error);
                 });
 
             } else {
-                // 1. 未登入状态，封锁 UI 通道
                 if (btn) {
                     btn.setAttribute("disabled", "true");
                     btn.style.opacity = "0.45";
@@ -95,16 +93,22 @@
                 if (authBtn) authBtn.textContent = "登入";
                 window._currentUser = null;
                 
-                // 2. 断开云端链路，退回枢纽待命状态
+                // 激活防线：降下遮罩层
+                if (overlay) overlay.classList.remove("hidden");
+
                 if (currentUnsubscribe) {
                     currentUnsubscribe();
                     currentUnsubscribe = null;
                 }
-                document.getElementById("graph-container").innerHTML = `<div style="padding:50px; color:#5C5347; font-size:16px; text-align:center; margin-top:30vh; letter-spacing:2px; font-family:'STSong', serif;">枢纽待命 · 请先在左下角登入账号以唤醒司南大阵</div>`;
+                
+                // 静默清空画布残留
+                if (typeof window.clearGraph === "function") {
+                    window.clearGraph();
+                }
             }
         });
 
-        /* ── [D-3] 枢纽登入 / 登出核心调度 ── */
+        /* ── 枢纽登入核心调度 ── */
         window.handleAuthToggle = function() {
             if (window._currentUser) {
                 signOut(auth).then(() => {
@@ -159,7 +163,20 @@
             overflow: hidden;
         }
 
-        #graph-container { width: 100vw; height: 100vh; }
+        /* D3 容器脱离文档流但保持静默层级 */
+        #graph-container { width: 100vw; height: 100vh; position: absolute; inset: 0; z-index: 10; }
+
+        /* 独立水墨遮罩层 */
+        #auth-overlay {
+            position: fixed; inset: 0; background-color: var(--silk-white); z-index: 500;
+            display: flex; align-items: center; justify-content: center;
+            transition: opacity 0.6s cubic-bezier(0.19, 1, 0.22, 1), transform 0.5s ease;
+            pointer-events: all;
+        }
+        #auth-overlay.hidden { opacity: 0; pointer-events: none; transform: scale(1.02); }
+        .overlay-card { text-align: center; padding: 40px; border-radius: 4px; }
+        .overlay-title { font-size: 20px; color: var(--amber-gold); letter-spacing: 4px; margin-bottom: 12px; }
+        .overlay-subtitle { font-size: 13px; color: var(--ink-gray); letter-spacing: 2px; line-height: 1.8; }
 
         .node text {
             pointer-events: none;
@@ -199,9 +216,10 @@
         .legend-line { width: 26px; height: 2px; margin-right: 9px; flex-shrink: 0; }
         .legend-label { font-size: 11px; color: var(--ink-gray); letter-spacing: 1px; }
 
-        /* ========== Phase 4：续写文脉 Modal样式 ========== */
+        /* ✅ 终极修复：按钮采用 fixed 定位，破除所有层叠上下文遮挡 */
         #open-modal-btn {
-            position: absolute; bottom: 30px; right: 30px; z-index: 150;
+            position: fixed; 
+            bottom: 30px; right: 30px; z-index: 600; pointer-events: auto;
             background: rgba(253, 251, 247, 0.85); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
             border: 1px solid rgba(212, 175, 55, 0.5); color: var(--amber-gold);
             font-family: "STSong", "SimSun", "Microsoft YaHei", serif; font-size: 14px; letter-spacing: 3px;
@@ -213,7 +231,7 @@
         }
 
         #modal-overlay {
-            position: fixed; inset: 0; z-index: 300; background: rgba(44, 44, 44, 0.45);
+            position: fixed; inset: 0; z-index: 2000; background: rgba(44, 44, 44, 0.45);
             backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
             display: flex; align-items: center; justify-content: center; opacity: 0; pointer-events: none;
             transition: opacity 0.4s cubic-bezier(0.19, 1, 0.22, 1);
@@ -257,7 +275,6 @@
         .feedback-success { color: #6B8E6B; }
         .feedback-error   { color: #8B3A3A; }
 
-        /* ========== [C-CSS] 登入枢纽样式（左下角水墨自适应） ========== */
         #auth-hub { position: fixed; bottom: 24px; left: 24px; z-index: 1200; display: flex; flex-direction: column; align-items: flex-start; font-family: inherit; }
         #auth-status-bar {
             display: flex; align-items: center; gap: 8px; background: rgba(253, 251, 247, 0.92);
@@ -282,7 +299,6 @@
         #auth-confirm-btn { background: linear-gradient(135deg, #D4AF37, #B8941F); color: #fff; border: none; border-radius: 6px; padding: 8px 0; font-size: 13px; letter-spacing: 3px; cursor: pointer; font-family: inherit; }
         #auth-confirm-btn:hover { opacity: 0.88; }
 
-        /* ========== Phase 5：移动端自适应媒体查询 ========== */
         @media (max-width: 768px) {
             #top-panel h1 { font-size: 22px; letter-spacing: 2px; }
             #top-panel p { font-size: 12px; }
@@ -304,6 +320,13 @@
     </style>
 </head>
 <body>
+
+<div id="auth-overlay">
+    <div class="overlay-card">
+        <div class="overlay-title">枢纽待命</div>
+        <div class="overlay-subtitle">文道维基 · 司南大阵待唤醒<br>请先在左下角登入内部账号以拉取谱系数据</div>
+    </div>
+</div>
 
 <div id="top-panel">
     <h1>文道维基 · 司南图谱</h1>
@@ -412,13 +435,15 @@ svg.call(zoom);
 const defs = svg.append("defs");
 const g = svg.append("g").attr("class", "zoom-layer");
 
-/* ============================================================
-   [核心画布重置] 规避 HTML 容器状态切换导致的元素无限复写与失效
-   ============================================================ */
+window.clearGraph = function() {
+    if (window._simulation) window._simulation.stop();
+    g.selectAll("*").remove();
+    defs.selectAll("*").remove();
+};
+
 window.initGraph = function(nodes, links) {
-    const container = document.getElementById("graph-container");
-    container.innerHTML = ""; 
-    container.appendChild(svg.node()); 
+    // 斩断旧残影，防止多重线程碰撞
+    if (window._simulation) window._simulation.stop();
 
     g.selectAll("*").remove();
     defs.selectAll("*").remove();
@@ -430,7 +455,7 @@ window.initGraph = function(nodes, links) {
     gradients.append("stop").attr("offset", "0%").attr("stop-color", "#FFFFFF").attr("stop-opacity", 0.9);
     gradients.append("stop").attr("offset", "100%").attr("stop-color", d => d.color).attr("stop-opacity", 1);
 
-    const simulation = d3.forceSimulation(nodes)
+    window._simulation = d3.forceSimulation(nodes)
         .force("link", d3.forceLink(links).id(d => d.id).distance(140))
         .force("charge", d3.forceManyBody().strength(-550))
         .force("center", d3.forceCenter(width / 2, height / 2))
@@ -512,20 +537,20 @@ window.initGraph = function(nodes, links) {
     node.on("mouseover", function() { d3.select(this).select("circle").transition().duration(200).attr("r", d => d.radius * 1.1); })
         .on("mouseout", function() { d3.select(this).select("circle").transition().duration(200).attr("r", d => d.radius); });
 
-    simulation.nodes(nodes).on("tick", ticked);
-    simulation.force("link").links(links);
+    window._simulation.nodes(nodes).on("tick", ticked);
+    window._simulation.force("link").links(links);
 
     function ticked() {
         link.attr("x1", d => d.source.x).attr("y1", d => d.source.y).attr("x2", d => d.target.x).attr("y2", d => d.target.y);
         node.attr("transform", d => `translate(${d.x},${d.y})`);
     }
 
-    function dragstarted(event, d) { if (!event.active) simulation.alphaTarget(0.3).restart(); d.fx = d.x; d.fy = d.y; }
+    function dragstarted(event, d) { if (!event.active) window._simulation.alphaTarget(0.3).restart(); d.fx = d.x; d.fy = d.y; }
     function dragged(event, d) { d.fx = event.x; d.fy = event.y; }
-    function dragended(event, d) { if (!event.active) simulation.alphaTarget(0); d.fx = null; d.fy = null; }
+    function dragended(event, d) { if (!event.active) window._simulation.alphaTarget(0); d.fx = null; d.fy = null; }
 };
 
-/* ========== Phase 4：续写文脉 动态字段渲染逻辑 ========== */
+/* ========== 续写文脉 动态表单及云端推送 ========== */
 const fieldConfigs = {
     "add-node": [
         { id: "node-id",      name: "node_id",      label: "节点名称",      type: "input",    placeholder: "例：韩愈、无题、牛李党争" },
@@ -684,7 +709,7 @@ document.getElementById("submit-btn").addEventListener("click", async function()
     }
 });
 
-/* ========== Phase 5：触控适配 ========== */
+/* ========== 触控适配 ========== */
 document.getElementById("graph-container").style.touchAction = "none";
 (function() {
     const panel = document.getElementById("right-panel");
